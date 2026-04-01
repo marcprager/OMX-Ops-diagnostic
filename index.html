@@ -190,7 +190,8 @@ const VALID_TOKENS = [
 // On page load, validate the token
 window.addEventListener('DOMContentLoaded', async function() {
   if (IS_ADMIN) {
-    // Admin mode – go straight to dashboard
+    adminAuthenticated = true;
+    showScreen('aggregate');
     return;
   }
   if (!TOKEN || !VALID_TOKENS.includes(TOKEN)) {
