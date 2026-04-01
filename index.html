@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>OMX Ops Organizational Diagnostic</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root {
   --chime: #00A33E; --chime-dark: #1B4332; --chime-mid: #2D6A4F;
@@ -172,6 +173,45 @@ h3 { font-size: 16px; font-weight: 600; color: var(--chime-dark); margin-bottom:
 <div id="aggregate" class="container hidden"></div>
 
 <script>
+// ===== SUPABASE =====
+const SUPABASE_URL = 'https://giakzbxvmrszaghulded.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_K4guaQ2Vz-Oah4qIi4T8VA_SEwJEe9p';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ===== TOKEN SYSTEM =====
+const urlParams = new URLSearchParams(window.location.search);
+const TOKEN = urlParams.get('t');
+const IS_ADMIN = urlParams.get('admin') === 'true';
+
+// Valid tokens – add your 20 manager tokens here
+const VALID_TOKENS = [
+  'dm01','dm02','dm03','dm04','dm05','dm06','dm07','dm08','dm09','dm10',
+  'dm11','dm12','dm13','dm14','dm15','dm16','dm17','dm18','dm19','dm20'
+];
+
+// On page load, validate the token
+window.addEventListener('DOMContentLoaded', async function() {
+  if (IS_ADMIN) {
+    // Admin mode – go straight to dashboard
+    return;
+  }
+  if (!TOKEN || !VALID_TOKENS.includes(TOKEN)) {
+    document.getElementById('welcome').innerHTML =
+      '<div style="text-align:center; padding:60px 20px;">' +
+      '<h1 style="color:var(--chime-dark); margin-bottom:12px;">OMX Ops Organizational Diagnostic</h1>' +
+      '<p style="color:var(--g500); max-width:400px; margin:0 auto;">This diagnostic requires a valid invitation link. Please use the link provided to you by the People team.</p></div>';
+    return;
+  }
+  // Check if this token already submitted
+  const { data } = await supabase.from('responses').select('id').eq('token', TOKEN);
+  if (data && data.length > 0) {
+    document.getElementById('welcome').innerHTML =
+      '<div style="text-align:center; padding:60px 20px;">' +
+      '<h1 style="color:var(--chime-dark); margin-bottom:12px;">Already Submitted</h1>' +
+      '<p style="color:var(--g500); max-width:400px; margin:0 auto;">You have already completed this diagnostic. Thank you for your participation. If you believe this is an error, please contact the People team.</p></div>';
+  }
+});
+
 // ===== QUESTION BANK =====
 // 40 questions: 4 areas x (5 team + 5 org)
 // Each: { text, area (0-3), dim ("team"|"org"), alt: { leader: "..." } }
@@ -350,7 +390,18 @@ function getQuestionText(idx) {
 }
 
 // ===== NAVIGATION =====
+const ADMIN_PASSWORD = 'omxops2026';
+let adminAuthenticated = false;
+
 function showScreen(id) {
+  if (id === 'aggregate' && !adminAuthenticated) {
+    const pw = prompt('Enter admin password to view the dashboard:');
+    if (pw !== ADMIN_PASSWORD) {
+      alert('Incorrect password.');
+      return;
+    }
+    adminAuthenticated = true;
+  }
   ['welcome','assessment','results','aggregate'].forEach(s => document.getElementById(s).classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
   window.scrollTo(0, 0);
@@ -557,11 +608,12 @@ function showResults() {
     '<strong>How to read the gap:</strong> A positive gap (Team > Org) means you and your team are solid, but the org around you is creating friction. A negative gap means the org structures exist, but there may be a team-level opportunity. Both low? That is compounding friction from both directions.' +
     '</div>';
 
-  // Actions
-  html += '<div style="text-align:center; margin-top:20px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">' +
-    '<button class="btn btn-primary" onclick="saveAndGoAggregate()">Save & View Dashboard</button>' +
-    '<button class="btn btn-secondary" onclick="window.print()">Print Results</button>' +
-    '<button class="btn btn-secondary" onclick="showScreen(\'welcome\')">New Response</button></div>';
+  // Actions – respondents see a thank-you, not the dashboard
+  html += '<div class="card" style="text-align:center; padding:32px; margin-top:16px; background:var(--mint);">' +
+    '<h2 style="color:var(--chime-dark); margin-bottom:8px;">Thank you for completing the diagnostic</h2>' +
+    '<p style="color:var(--chime-mid); font-size:14px; max-width:480px; margin:0 auto;">Your response has been saved. Aggregate results will be shared with Ops Leadership and the Culture Crew to identify patterns and develop targeted solutions.</p></div>' +
+    '<div style="text-align:center; margin-top:16px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">' +
+    '<button class="btn btn-secondary" onclick="window.print()">Print My Results</button></div>';
 
   document.getElementById('results').innerHTML = html;
   showScreen('results');
@@ -606,49 +658,66 @@ function showResults() {
 }
 
 // ===== PERSISTENCE =====
-function saveResponse(scores) {
-  let responses = JSON.parse(sessionStorage.getItem('omx_diag_v3') || '[]');
-  responses.push({
+async function saveResponse(scores) {
+  const { error } = await supabase.from('responses').insert({
     tier: tier,
     scores: scores,
     answers: {...answers},
-    bottleneckAnswers: {...bottleneckAnswers},
-    openAnswers: {...openAnswers},
-    ts: Date.now()
+    bottleneck_answers: {...bottleneckAnswers},
+    open_answers: {...openAnswers},
+    token: TOKEN,
   });
-  sessionStorage.setItem('omx_diag_v3', JSON.stringify(responses));
+  if (error) {
+    console.error('Failed to save response:', error);
+    alert('Your response could not be saved. Please check your connection and try again.');
+  }
 }
 
 function saveAndGoAggregate() { showScreen('aggregate'); }
-function getAllResponses() { return JSON.parse(sessionStorage.getItem('omx_diag_v3') || '[]'); }
+
+async function getAllResponses() {
+  const { data, error } = await supabase
+    .from('responses')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) { console.error('Failed to load responses:', error); return []; }
+  // Map DB column names to the format the dashboard expects
+  return data.map(function(r) {
+    return {
+      tier: r.tier,
+      scores: r.scores,
+      answers: r.answers,
+      bottleneckAnswers: r.bottleneck_answers,
+      openAnswers: r.open_answers,
+      token: r.token,
+      ts: new Date(r.created_at).getTime()
+    };
+  });
+}
 
 // ===== AGGREGATE DASHBOARD =====
-let aggTab = 'overview';
+let aggTab = 'status';
 
 function switchTab(tab) {
   aggTab = tab;
   renderAggregate();
 }
 
-function renderAggregate() {
-  const responses = getAllResponses();
+async function renderAggregate() {
+  const responses = await getAllResponses();
   let html = '<h1 style="margin-bottom:4px;">Aggregate Dashboard</h1>' +
     '<p style="color:var(--g500); margin-bottom:16px;">' +
     '<span class="response-count">' + responses.length + ' response' + (responses.length !== 1 ? 's' : '') + '</span>' +
     (responses.length === 0 ? ' Complete the diagnostic to see results here.' : '') + '</p>';
 
-  if (responses.length === 0) {
-    html += '<div class="card" style="text-align:center; padding:40px;">' +
-      '<p style="color:var(--g400); font-size:15px;">No responses yet. Complete the diagnostic or import responses to see aggregate data.</p>' +
-      '<div style="margin-top:16px; display:flex; gap:10px; justify-content:center;">' +
-      '<button class="btn btn-primary" onclick="showScreen(\'welcome\')">Take Diagnostic</button>' +
-      '<button class="btn btn-secondary" onclick="importResponses()">Import JSON</button></div></div>';
-    document.getElementById('aggregate').innerHTML = html;
-    return;
+  if (responses.length === 0 && aggTab !== 'status') {
+    // Show status tab even with 0 responses
+    aggTab = 'status';
   }
 
   // Tabs
   const tabs = [
+    {key:'status', label:'Completion Status'},
     {key:'overview', label:'Matrix Overview'},
     {key:'tiers', label:'Tier Comparison'},
     {key:'bottleneck', label:'Bottleneck Check'},
@@ -662,7 +731,8 @@ function renderAggregate() {
   });
   html += '</div>';
 
-  if (aggTab === 'overview') html += renderOverview(responses);
+  if (aggTab === 'status') html += renderTokenStatus(responses);
+  else if (aggTab === 'overview') html += renderOverview(responses);
   else if (aggTab === 'tiers') html += renderTierComparison(responses);
   else if (aggTab === 'bottleneck') html += renderBottleneckCheck(responses);
   else if (aggTab === 'items') html += renderFrictionItems(responses);
@@ -674,7 +744,7 @@ function renderAggregate() {
     '<button class="btn btn-secondary btn-sm" onclick="exportJSON()">Export JSON</button>' +
     '<button class="btn btn-secondary btn-sm" onclick="importResponses()">Import JSON</button>' +
     '<button class="btn btn-secondary btn-sm" onclick="showScreen(\'welcome\')">Add Response</button>' +
-    '<button class="btn btn-secondary btn-sm" onclick="if(confirm(\'Clear all responses?\')){sessionStorage.removeItem(\'omx_diag_v3\');renderAggregate();}">Clear All</button>' +
+    '<button class="btn btn-secondary btn-sm" onclick="if(confirm(\'Clear all responses? This cannot be undone.\')){supabase.from(\'responses\').delete().neq(\'id\',\'00000000-0000-0000-0000-000000000000\').then(function(){renderAggregate();});}">Clear All</button>' +
     '<button class="btn btn-secondary btn-sm" onclick="window.print()">Print</button></div>';
 
   document.getElementById('aggregate').innerHTML = html;
@@ -699,6 +769,57 @@ function avgScoresFromResponses(resps) {
     result.org[i] = Math.round(result.org[i] / n);
   }
   return result;
+}
+
+// === TAB 0: Completion Status ===
+function renderTokenStatus(responses) {
+  const submittedTokens = responses.map(function(r) { return r.token; }).filter(Boolean);
+  const completed = VALID_TOKENS.filter(function(t) { return submittedTokens.includes(t); });
+  const pending = VALID_TOKENS.filter(function(t) { return !submittedTokens.includes(t); });
+  const pct = Math.round(completed.length / VALID_TOKENS.length * 100);
+
+  let html = '<div class="card">' +
+    '<h2>Completion Status</h2>' +
+    '<p style="color:var(--g500); font-size:13px; margin-bottom:16px;">' + completed.length + ' of ' + VALID_TOKENS.length + ' invitations completed (' + pct + '%)</p>' +
+    '<div style="height:8px; background:var(--g200); border-radius:4px; overflow:hidden; margin-bottom:20px;">' +
+    '<div style="height:100%; width:' + pct + '%; background:var(--chime); border-radius:4px;"></div></div>';
+
+  // Completed
+  html += '<h3 style="color:var(--healthy); margin-bottom:8px;">Completed (' + completed.length + ')</h3>';
+  if (completed.length === 0) {
+    html += '<p style="color:var(--g400); font-size:13px; margin-bottom:16px;">No submissions yet.</p>';
+  } else {
+    html += '<div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px;">';
+    completed.forEach(function(t) {
+      html += '<span style="padding:4px 12px; background:#DCFCE7; color:#16A34A; border-radius:16px; font-size:12px; font-weight:600;">' + t + '</span>';
+    });
+    html += '</div>';
+  }
+
+  // Pending
+  html += '<h3 style="color:var(--friction); margin-bottom:8px;">Pending (' + pending.length + ')</h3>';
+  if (pending.length === 0) {
+    html += '<p style="color:var(--g400); font-size:13px;">All invitations completed!</p>';
+  } else {
+    html += '<div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px;">';
+    pending.forEach(function(t) {
+      html += '<span style="padding:4px 12px; background:#FEF3C7; color:#CA8A04; border-radius:16px; font-size:12px; font-weight:600;">' + t + '</span>';
+    });
+    html += '</div>';
+  }
+
+  // Link generator
+  const baseUrl = window.location.origin + window.location.pathname;
+  html += '<h3 style="margin-top:20px; margin-bottom:8px;">Invitation Links</h3>' +
+    '<p style="color:var(--g500); font-size:13px; margin-bottom:12px;">Copy these links and send one to each manager. Keep your own record of which token goes to which person.</p>' +
+    '<div style="max-height:300px; overflow-y:auto; background:var(--g50); border-radius:8px; padding:12px; font-family:monospace; font-size:12px; line-height:2;">';
+  VALID_TOKENS.forEach(function(t) {
+    const status = submittedTokens.includes(t) ? ' ✓' : '';
+    html += '<div>' + baseUrl + '?t=' + t + status + '</div>';
+  });
+  html += '</div></div>';
+
+  return html;
 }
 
 // === TAB 1: Matrix Overview ===
@@ -1044,8 +1165,8 @@ function escapeHtml(str) {
 }
 
 // ===== EXPORT / IMPORT =====
-function exportJSON() {
-  const data = getAllResponses();
+async function exportJSON() {
+  const data = await getAllResponses();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1060,15 +1181,24 @@ function importResponses() {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(ev) {
+    reader.onload = async function(ev) {
       try {
         const data = JSON.parse(ev.target.result);
         if (!Array.isArray(data)) throw new Error('Invalid format');
-        let existing = getAllResponses();
-        existing = existing.concat(data);
-        sessionStorage.setItem('omx_diag_v3', JSON.stringify(existing));
+        // Insert each response into Supabase
+        const rows = data.map(function(r) {
+          return {
+            tier: r.tier,
+            scores: r.scores,
+            answers: r.answers,
+            bottleneck_answers: r.bottleneckAnswers || r.bottleneck_answers || {},
+            open_answers: r.openAnswers || r.open_answers || {},
+          };
+        });
+        const { error } = await supabase.from('responses').insert(rows);
+        if (error) throw error;
         renderAggregate();
-        alert('Imported ' + data.length + ' response(s). Total: ' + existing.length);
+        alert('Imported ' + data.length + ' response(s).');
       } catch(err) { alert('Error importing: ' + err.message); }
     };
     reader.readAsText(file);
