@@ -176,7 +176,7 @@ h3 { font-size: 16px; font-weight: 600; color: var(--chime-dark); margin-bottom:
 // ===== SUPABASE =====
 const SUPABASE_URL = 'https://giakzbxvmrszaghulded.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_K4guaQ2Vz-Oah4qIi4T8VA_SEwJEe9p';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ===== TOKEN SYSTEM =====
 const urlParams = new URLSearchParams(window.location.search);
@@ -203,7 +203,7 @@ window.addEventListener('DOMContentLoaded', async function() {
     return;
   }
   // Check if this token already submitted
-  const { data } = await supabase.from('responses').select('id').eq('token', TOKEN);
+  const { data } = await db.from('responses').select('id').eq('token', TOKEN);
   if (data && data.length > 0) {
     document.getElementById('welcome').innerHTML =
       '<div style="text-align:center; padding:60px 20px;">' +
@@ -659,7 +659,7 @@ function showResults() {
 
 // ===== PERSISTENCE =====
 async function saveResponse(scores) {
-  const { error } = await supabase.from('responses').insert({
+  const { error } = await db.from('responses').insert({
     tier: tier,
     scores: scores,
     answers: {...answers},
@@ -676,7 +676,7 @@ async function saveResponse(scores) {
 function saveAndGoAggregate() { showScreen('aggregate'); }
 
 async function getAllResponses() {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('responses')
     .select('*')
     .order('created_at', { ascending: false });
@@ -744,7 +744,7 @@ async function renderAggregate() {
     '<button class="btn btn-secondary btn-sm" onclick="exportJSON()">Export JSON</button>' +
     '<button class="btn btn-secondary btn-sm" onclick="importResponses()">Import JSON</button>' +
     '<button class="btn btn-secondary btn-sm" onclick="showScreen(\'welcome\')">Add Response</button>' +
-    '<button class="btn btn-secondary btn-sm" onclick="if(confirm(\'Clear all responses? This cannot be undone.\')){supabase.from(\'responses\').delete().neq(\'id\',\'00000000-0000-0000-0000-000000000000\').then(function(){renderAggregate();});}">Clear All</button>' +
+    '<button class="btn btn-secondary btn-sm" onclick="if(confirm(\'Clear all responses? This cannot be undone.\')){db.from(\'responses\').delete().neq(\'id\',\'00000000-0000-0000-0000-000000000000\').then(function(){renderAggregate();});}">Clear All</button>' +
     '<button class="btn btn-secondary btn-sm" onclick="window.print()">Print</button></div>';
 
   document.getElementById('aggregate').innerHTML = html;
@@ -1195,7 +1195,7 @@ function importResponses() {
             open_answers: r.openAnswers || r.open_answers || {},
           };
         });
-        const { error } = await supabase.from('responses').insert(rows);
+        const { error } = await db.from('responses').insert(rows);
         if (error) throw error;
         renderAggregate();
         alert('Imported ' + data.length + ' response(s).');
