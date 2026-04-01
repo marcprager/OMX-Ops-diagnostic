@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OMX Ops Organizational Diagnostic</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --chime: #00A33E; --chime-dark: #1B4332; --chime-mid: #2D6A4F;
+  --mint: #EBF5EC; --mint-light: #F5FBF6;
+  --white: #FFFFFF; --g50: #F9FAFB; --g100: #F3F4F6; --g200: #E5E7EB;
+  --g300: #D1D5DB; --g400: #9CA3AF; --g500: #6B7280; --g600: #4B5563;
+  --g700: #374151; --g800: #1F2937;
+  --healthy: #16A34A; --watch: #CA8A04; --friction: #EA580C; --hotspot: #DC2626;
+  --team-color: #0891B2; --org-color: #D97706;
+  --area0: #0891B2; --area1: #D97706; --area2: #7C3AED; --area3: #DC2626;
+  --radius: 10px; --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: Arial, Helvetica, sans-serif; background: var(--mint-light); color: var(--g800); line-height: 1.5; }
+.hidden { display: none !important; }
+.container { max-width: 860px; margin: 0 auto; padding: 24px 20px; }
+h1 { font-size: 28px; font-weight: 700; color: var(--chime-dark); }
+h2 { font-size: 22px; font-weight: 700; color: var(--chime-dark); margin-bottom: 8px; }
+h3 { font-size: 16px; font-weight: 600; color: var(--chime-dark); margin-bottom: 6px; }
+.card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; margin-bottom: 16px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; padding: 12px 28px; border-radius: 8px; font-size: 15px; font-weight: 600; border: none; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+.btn-primary { background: var(--chime); color: white; }
+.btn-primary:hover { background: var(--chime-dark); }
+.btn-secondary { background: var(--g100); color: var(--g700); border: 1px solid var(--g300); }
+.btn-secondary:hover { background: var(--g200); }
+.btn-sm { padding: 8px 16px; font-size: 13px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Welcome */
+#welcome .hero { text-align: center; padding: 32px 0 16px; }
+#welcome .hero h1 { font-size: 32px; margin-bottom: 6px; }
+#welcome .hero p { color: var(--g500); font-size: 15px; max-width: 540px; margin: 0 auto; }
+.trust-banner { background: var(--mint); border-left: 4px solid var(--chime); padding: 14px 18px; border-radius: 0 var(--radius) var(--radius) 0; margin: 16px 0; font-size: 14px; color: var(--chime-dark); }
+.tier-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
+.tier-card { padding: 20px 16px; border: 2px solid var(--g200); border-radius: var(--radius); cursor: pointer; text-align: center; transition: all 0.15s; }
+.tier-card:hover { border-color: var(--chime); background: var(--mint); }
+.tier-card.selected { border-color: var(--chime); background: var(--mint); box-shadow: 0 0 0 2px var(--chime); }
+.tier-card .tier-icon { font-size: 28px; margin-bottom: 8px; }
+.tier-card .tier-label { font-weight: 700; font-size: 14px; color: var(--chime-dark); }
+.tier-card .tier-desc { font-size: 12px; color: var(--g500); margin-top: 4px; }
+
+/* Assessment */
+#assessment .progress-bar { height: 6px; background: var(--g200); border-radius: 3px; margin-bottom: 20px; overflow: hidden; }
+#assessment .progress-fill { height: 100%; background: var(--chime); border-radius: 3px; transition: width 0.3s; }
+#assessment .progress-text { font-size: 13px; color: var(--g500); margin-bottom: 8px; }
+.question-block { margin-bottom: 20px; }
+.question-text { font-size: 15px; font-weight: 500; color: var(--g800); margin-bottom: 10px; line-height: 1.45; }
+.likert { display: flex; gap: 6px; }
+.likert label { flex: 1; text-align: center; padding: 10px 4px; border: 1px solid var(--g200); border-radius: 8px; cursor: pointer; font-size: 11px; color: var(--g600); transition: all 0.15s; line-height: 1.3; }
+.likert label:hover { border-color: var(--chime); background: var(--mint); }
+.likert input { display: none; }
+.likert input:checked + span { background: var(--chime); color: white; border-radius: 6px; display: block; padding: 8px 2px; margin: -9px -3px; border: none; }
+.open-text { margin-bottom: 20px; }
+.open-text textarea { width: 100%; padding: 12px; border: 1px solid var(--g300); border-radius: 8px; font-size: 14px; font-family: inherit; min-height: 80px; resize: vertical; }
+.open-text textarea:focus { outline: none; border-color: var(--chime); box-shadow: 0 0 0 2px rgba(0,163,62,0.2); }
+.nav-row { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
+
+/* Bottleneck */
+.bottleneck-block { margin-bottom: 24px; }
+.bottleneck-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.bottleneck-opt { padding: 12px; border: 2px solid var(--g200); border-radius: 8px; cursor: pointer; text-align: center; font-size: 13px; font-weight: 600; transition: all 0.15s; }
+.bottleneck-opt:hover { border-color: var(--chime); background: var(--mint); }
+.bottleneck-opt.selected { border-color: var(--chime); background: var(--mint); box-shadow: 0 0 0 2px var(--chime); color: var(--chime-dark); }
+
+/* Results matrix */
+.matrix-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 12px; }
+.matrix-table th { padding: 10px 12px; background: var(--g50); color: var(--g600); font-weight: 600; border-bottom: 2px solid var(--g200); text-align: center; }
+.matrix-table th:first-child { text-align: left; }
+.matrix-table td { padding: 12px; border-bottom: 1px solid var(--g100); text-align: center; }
+.matrix-table td:first-child { text-align: left; font-weight: 600; }
+.score-pill { display: inline-block; padding: 4px 12px; border-radius: 12px; font-weight: 700; font-size: 14px; color: white; min-width: 48px; }
+.gap-indicator { font-weight: 700; font-size: 14px; }
+
+/* Aggregate */
+.tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 2px solid var(--g200); flex-wrap: wrap; }
+.tab { padding: 10px 14px; font-size: 13px; font-weight: 600; color: var(--g500); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; background: none; border-top: none; border-left: none; border-right: none; font-family: inherit; white-space: nowrap; }
+.tab.active { color: var(--chime-dark); border-bottom-color: var(--chime); }
+.tier-comparison { overflow-x: auto; }
+.tier-comparison table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tier-comparison th { text-align: left; padding: 10px 12px; background: var(--g50); color: var(--g600); font-weight: 600; border-bottom: 2px solid var(--g200); }
+.tier-comparison td { padding: 10px 12px; border-bottom: 1px solid var(--g100); }
+.divergence-alert { background: #FFF7ED; border-left: 4px solid var(--friction); padding: 14px 18px; border-radius: 0 var(--radius) var(--radius) 0; margin: 12px 0; font-size: 14px; }
+.friction-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--g100); }
+.friction-item:last-child { border-bottom: none; }
+.friction-item .q-text { flex: 1; font-size: 13px; color: var(--g700); }
+.friction-item .q-score { font-weight: 700; font-size: 15px; margin-left: 12px; white-space: nowrap; }
+.response-count { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; background: var(--mint); border-radius: 16px; font-size: 13px; font-weight: 600; color: var(--chime-dark); }
+.open-responses { max-height: 500px; overflow-y: auto; }
+.open-response-item { padding: 12px; background: var(--g50); border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
+.open-response-item .resp-meta { font-size: 11px; color: var(--g400); margin-bottom: 4px; }
+.chart-wrap { max-width: 400px; margin: 20px auto; }
+.dim-tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-left: 6px; }
+.dim-team { background: #E0F2FE; color: #0369A1; }
+.dim-org { background: #FEF3C7; color: #92400E; }
+
+@media (max-width: 640px) {
+  .tier-grid { grid-template-columns: 1fr; }
+  .likert { flex-wrap: wrap; }
+  .likert label { flex: 0 0 calc(50% - 3px); }
+  .bottleneck-options { grid-template-columns: 1fr; }
+  .tabs { gap: 2px; }
+  .tab { padding: 8px 10px; font-size: 12px; }
+}
+@media print {
+  .btn, .nav-row, .tabs { display: none; }
+  body { background: white; }
+  .card { box-shadow: none; border: 1px solid var(--g200); break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ WELCOME ============ -->
+<div id="welcome" class="container">
+  <div class="hero">
+    <h1>OMX Ops Organizational Diagnostic</h1>
+    <p>Understanding how work flows, and where we can improve.</p>
+  </div>
+
+  <div class="trust-banner">
+    This is not a performance evaluation. There are no right or wrong answers. Your honest perspective helps us understand whether challenges are about team practices, organizational systems, or both.
+  </div>
+
+  <div class="card">
+    <h3>What's your role?</h3>
+    <p style="font-size:13px; color:var(--g500); margin-bottom:12px;">This helps us see how experiences differ across the org.</p>
+    <div class="tier-grid">
+      <div class="tier-card" onclick="selectTier('manager')" id="tc-manager">
+        <div class="tier-icon">&#x1F4CB;</div>
+        <div class="tier-label">Manager</div>
+        <div class="tier-desc">People manager with direct reports</div>
+      </div>
+      <div class="tier-card" onclick="selectTier('leader')" id="tc-leader">
+        <div class="tier-icon">&#x1F3AF;</div>
+        <div class="tier-label">Senior Leader</div>
+        <div class="tier-desc">Director+ / Carey's directs</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center; margin-top:16px;">
+    <button class="btn btn-primary" id="startBtn" onclick="startAssessment()" disabled>Start Diagnostic</button>
+    <div style="margin-top:12px;">
+      <button class="btn btn-secondary btn-sm" onclick="showScreen('aggregate')">View Aggregate Dashboard</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ASSESSMENT ============ -->
+<div id="assessment" class="container hidden">
+  <div class="progress-text" id="progressText"></div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="card" id="questionArea"></div>
+  <div class="nav-row">
+    <button class="btn btn-secondary" id="backBtn" onclick="prevPage()">Back</button>
+    <button class="btn btn-primary" id="nextBtn" onclick="nextPage()">Next</button>
+  </div>
+</div>
+
+<!-- ============ RESULTS ============ -->
+<div id="results" class="container hidden"></div>
+
+<!-- ============ AGGREGATE ============ -->
+<div id="aggregate" class="container hidden"></div>
+
+<script>
+// ===== QUESTION BANK =====
+// 40 questions: 4 areas x (5 team + 5 org)
+// Each: { text, area (0-3), dim ("team"|"org"), alt: { leader: "..." } }
+const QUESTIONS = [
+  // === AREA 0: Decision-Making ===
+  // Team
+  {text:"My team knows which decisions they can make without coming to me.", area:0, dim:"team", alt:{leader:"My managers' teams know which decisions they can make autonomously."}},
+  {text:"I make decisions at a reasonable pace. My team isn't waiting on me.", area:0, dim:"team", alt:{leader:"My managers make decisions at a reasonable pace. Their teams aren't waiting on them."}},
+  {text:"When my team faces ambiguity, we have a clear way to resolve it.", area:0, dim:"team", alt:{leader:"When my managers' teams face ambiguity, they have a clear way to resolve it."}},
+  {text:"My direct reports would say decision-making within our team is efficient.", area:0, dim:"team", alt:{leader:"My managers' direct reports would say decision-making within their teams is efficient."}},
+  {text:"I'm confident in my ability to make the right call with incomplete information.", area:0, dim:"team", alt:{leader:"My managers are confident making the right call with incomplete information."}},
+  // Org
+  {text:"Cross-functional decisions have clear ownership. I know who makes the call.", area:0, dim:"org", alt:{}},
+  {text:"Escalation paths outside my team are well-defined and understood.", area:0, dim:"org", alt:{}},
+  {text:"Decisions that require input from other teams happen at a reasonable pace.", area:0, dim:"org", alt:{}},
+  {text:"I rarely encounter situations where two teams think they own the same decision.", area:0, dim:"org", alt:{}},
+  {text:"Decision-making processes have kept pace as the company has scaled.", area:0, dim:"org", alt:{}},
+
+  // === AREA 1: Prioritization & Workload ===
+  // Team
+  {text:"I run prioritization conversations that my team finds useful and clear.", area:1, dim:"team", alt:{leader:"My managers run prioritization conversations that their teams find useful."}},
+  {text:"My team knows what 'good enough' looks like for recurring work.", area:1, dim:"team", alt:{leader:"My managers' teams know what 'good enough' looks like for recurring work."}},
+  {text:"I use data to anchor trade-off conversations rather than relying on gut feel.", area:1, dim:"team", alt:{leader:"My managers use data to anchor trade-off conversations."}},
+  {text:"When priorities shift, my team adjusts without significant confusion or rework.", area:1, dim:"team", alt:{leader:"When priorities shift, my managers' teams adjust without significant confusion."}},
+  {text:"I'm able to say no or defer work within my team that doesn't align with our goals.", area:1, dim:"team", alt:{leader:"My managers are able to say no or defer work that doesn't align with goals."}},
+  // Org
+  {text:"When new work comes from leadership or other teams, there's a real conversation about what gets deprioritized.", area:1, dim:"org", alt:{}},
+  {text:"KTLO and new initiatives are balanced realistically at the org level.", area:1, dim:"org", alt:{}},
+  {text:"Company-wide KRs don't quietly layer onto team goals without trade-off discussions.", area:1, dim:"org", alt:{}},
+  {text:"The tools and dashboards available give me real visibility into capacity vs. demand.", area:1, dim:"org", alt:{}},
+  {text:"When I flag that something isn't feasible, it's taken seriously by leadership.", area:1, dim:"org", alt:{}},
+
+  // === AREA 2: Accountability & Performance ===
+  // Team
+  {text:"I set clear expectations with my direct reports about what good performance looks like.", area:2, dim:"team", alt:{leader:"My managers set clear performance expectations with their direct reports."}},
+  {text:"When someone on my team is underperforming, I address it directly and promptly.", area:2, dim:"team", alt:{leader:"When someone is underperforming, my managers address it directly and promptly."}},
+  {text:"I give regular, specific feedback, not just during review cycles.", area:2, dim:"team", alt:{leader:"My managers give regular, specific feedback, not just during review cycles."}},
+  {text:"I hold my team accountable for outcomes, not just effort or activity.", area:2, dim:"team", alt:{leader:"My managers hold their teams accountable for outcomes, not just effort."}},
+  {text:"Accountability is distributed fairly within my team. It doesn't fall on a few people.", area:2, dim:"team", alt:{leader:"Accountability is distributed fairly within my managers' teams."}},
+  // Org
+  {text:"There's clear ownership for following up on engagement results and action plans.", area:2, dim:"org", alt:{}},
+  {text:"When someone leaves or changes roles, their responsibilities are picked up in a structured way.", area:2, dim:"org", alt:{}},
+  {text:"Accountability for outcomes is distributed fairly across teams in the org.", area:2, dim:"org", alt:{}},
+  {text:"I understand how I'm being measured on team health and engagement.", area:2, dim:"org", alt:{}},
+  {text:"There are explicit rituals or cadences for reviewing how the org is functioning.", area:2, dim:"org", alt:{}},
+
+  // === AREA 3: Communication & Alignment ===
+  // Team
+  {text:"I cascade strategy and context to my team in a way that lands and sticks.", area:3, dim:"team", alt:{leader:"My managers cascade strategy and context effectively to their teams."}},
+  {text:"I have consistent rituals (1:1s, team syncs, retros) that keep my team aligned.", area:3, dim:"team", alt:{leader:"My managers have consistent rituals that keep their teams aligned."}},
+  {text:"My team understands how our work connects to the company's broader strategy.", area:3, dim:"team", alt:{leader:"My managers' teams understand how their work connects to company strategy."}},
+  {text:"When priorities or direction change, I communicate the 'why' clearly to my team.", area:3, dim:"team", alt:{leader:"When priorities change, my managers communicate the 'why' clearly."}},
+  {text:"I actively invest in my own development as a manager to stay effective at this scale.", area:3, dim:"team", alt:{leader:"My managers actively invest in their own development."}},
+  // Org
+  {text:"Important context and updates from leadership are shared proactively, not just when I ask.", area:3, dim:"org", alt:{}},
+  {text:"The story of what's changing and why gets communicated consistently across teams.", area:3, dim:"org", alt:{}},
+  {text:"Cross-functional coordination feels efficient, not dependent on informal relationships.", area:3, dim:"org", alt:{}},
+  {text:"I feel equipped to influence peers and partners in other orgs without direct authority.", area:3, dim:"org", alt:{leader:"My managers feel equipped to influence peers without direct authority."}},
+  {text:"When ownership of a process shifts between teams, the transition is communicated clearly.", area:3, dim:"org", alt:{}},
+];
+
+const AREAS = [
+  {name:"Decision-Making", color:"var(--area0)", hex:"#0891B2"},
+  {name:"Prioritization & Workload", color:"var(--area1)", hex:"#D97706"},
+  {name:"Accountability & Performance", color:"var(--area2)", hex:"#7C3AED"},
+  {name:"Communication & Alignment", color:"var(--area3)", hex:"#DC2626"},
+];
+
+const BOTTLENECK_OPTIONS = ["Within my team", "Across the org", "Both equally", "Working well enough"];
+const BOTTLENECK_KEYS = ["team", "org", "both", "neither"];
+
+const OPEN_PROMPTS = [
+  "What's one thing that, if fixed internally within your team, would make the biggest difference?",
+  "What's one thing outside your team's control that, if fixed, would make the biggest difference?",
+  "Describe a recent moment where you (or your team) had the skills but the system got in the way, or vice versa."
+];
+
+const LIKERT_LABELS = ["Strongly Disagree", "Disagree", "Sometimes True", "Agree", "Strongly Agree"];
+
+const LEVELS = [
+  {min:0, max:39, label:"Hot Spot", color:"var(--hotspot)", hex:"#DC2626", bg:"#FEE2E2"},
+  {min:40, max:59, label:"Friction", color:"var(--friction)", hex:"#EA580C", bg:"#FFF7ED"},
+  {min:60, max:79, label:"Watch", color:"var(--watch)", hex:"#CA8A04", bg:"#FEF9C3"},
+  {min:80, max:100, label:"Healthy", color:"var(--healthy)", hex:"#16A34A", bg:"#DCFCE7"},
+];
+
+// Dynamic interpretations based on area + dimension + gap direction
+const INTERPS = {
+  0: {
+    teamLow: "Decision-making within teams may be unclear or slow. Managers could benefit from defining decision rights more explicitly.",
+    orgLow: "Cross-functional decision-making lacks clarity. Ownership, escalation paths, and pace are creating drag.",
+    bothLow: "Decision friction is compounding. Both team-level authority and org-level coordination need attention.",
+    bothHigh: "Decision-making is largely working at both the team and org level.",
+    gapPos: "Managers are capable decision-makers, but the org creates friction around them.",
+    gapNeg: "Org decision infrastructure exists, but managers may need support applying it."
+  },
+  1: {
+    teamLow: "Prioritization within teams needs work. Managers may need frameworks for trade-off conversations.",
+    orgLow: "The org is adding work without clear trade-offs. Capacity pressure is real and likely unsustainable.",
+    bothLow: "Prioritization is breaking down everywhere. Both team-level discipline and org-level capacity planning need fixing.",
+    bothHigh: "Prioritization and workload management are solid across the board.",
+    gapPos: "Managers prioritize well within their teams, but the org isn't holding up its end of the bargain on capacity.",
+    gapNeg: "Org-level priorities are communicated, but managers may struggle to translate them into team-level action."
+  },
+  2: {
+    teamLow: "Performance management within teams is inconsistent. Expectations, feedback, and follow-through may be gaps.",
+    orgLow: "Org-level accountability is weak. Ownership of cross-team deliverables and follow-through on commitments need tightening.",
+    bothLow: "Accountability gaps at both levels. Performance conversations and org-level ownership are both lagging.",
+    bothHigh: "Accountability is clear and consistent at both the team and org level.",
+    gapPos: "Managers hold their teams accountable, but the org doesn't do the same across functions.",
+    gapNeg: "Org structures exist for accountability, but managers may not be applying them consistently within their teams."
+  },
+  3: {
+    teamLow: "Communication within teams needs improvement. Context, rituals, and clarity may be lacking.",
+    orgLow: "Org-level communication is a gap. Context isn't cascading, and cross-functional coordination depends too much on relationships.",
+    bothLow: "Communication is failing at both levels. Teams are misaligned, and the org isn't providing the context to fix it.",
+    bothHigh: "Communication is strong. Teams are aligned, and the org provides good context.",
+    gapPos: "Managers communicate well to their teams, but the org isn't giving them enough to work with.",
+    gapNeg: "Org-level communication exists, but managers may not be translating it effectively for their teams."
+  }
+};
+
+// ===== STATE =====
+let tier = null, currentPage = 0, answers = {}, openAnswers = {}, bottleneckAnswers = {};
+const LIKERT_PER_PAGE = 8;
+const TOTAL_LIKERT_PAGES = 5; // 40 / 8
+const TOTAL_PAGES = 7; // 5 likert + 1 bottleneck + 1 open-text (page 6 has open prompts only)
+// Layout: pages 0-4 = Likert (8 per page), page 5 = bottleneck questions, page 6 = open text
+let shuffledOrder = [];
+
+function buildShuffledOrder() {
+  // Interleave: for each position, cycle through areas and alternate team/org
+  // This prevents response-set bias from grouping
+  let teamByArea = [[],[],[],[]];
+  let orgByArea = [[],[],[],[]];
+  QUESTIONS.forEach((q, i) => {
+    if (q.dim === "team") teamByArea[q.area].push(i);
+    else orgByArea[q.area].push(i);
+  });
+  // Shuffle within each group
+  [teamByArea, orgByArea].forEach(groups => {
+    groups.forEach(arr => {
+      for (let i = arr.length - 1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    });
+  });
+  // Interleave: take one from each area alternating team/org
+  shuffledOrder = [];
+  for (let round = 0; round < 5; round++) {
+    for (let area = 0; area < 4; area++) {
+      if (round < teamByArea[area].length) shuffledOrder.push(teamByArea[area][round]);
+    }
+    for (let area = 0; area < 4; area++) {
+      if (round < orgByArea[area].length) shuffledOrder.push(orgByArea[area][round]);
+    }
+  }
+  // shuffledOrder should have 40 items. Now re-shuffle within each page of 8 to add local randomness
+  for (let p = 0; p < TOTAL_LIKERT_PAGES; p++) {
+    let start = p * LIKERT_PER_PAGE;
+    let end = Math.min(start + LIKERT_PER_PAGE, shuffledOrder.length);
+    let slice = shuffledOrder.slice(start, end);
+    for (let i = slice.length - 1; i > 0; i--) {
+      let j = Math.floor(Math.random() * (i + 1));
+      [slice[i], slice[j]] = [slice[j], slice[i]];
+    }
+    for (let i = start; i < end; i++) shuffledOrder[i] = slice[i - start];
+  }
+}
+
+function getQuestionText(idx) {
+  const q = QUESTIONS[idx];
+  if (tier === 'leader' && q.alt && q.alt.leader) return q.alt.leader;
+  return q.text;
+}
+
+// ===== NAVIGATION =====
+function showScreen(id) {
+  ['welcome','assessment','results','aggregate'].forEach(s => document.getElementById(s).classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+  window.scrollTo(0, 0);
+  if (id === 'aggregate') renderAggregate();
+}
+
+function selectTier(t) {
+  tier = t;
+  document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('tc-' + t).classList.add('selected');
+  document.getElementById('startBtn').disabled = false;
+}
+
+function startAssessment() {
+  if (!tier) return;
+  answers = {}; openAnswers = {}; bottleneckAnswers = {};
+  buildShuffledOrder();
+  currentPage = 0;
+  showScreen('assessment');
+  renderPage();
+}
+
+// ===== ASSESSMENT RENDERING =====
+function renderPage() {
+  const totalSteps = TOTAL_PAGES;
+  const pct = Math.round((currentPage / totalSteps) * 100);
+  document.getElementById('progressText').textContent = 'Page ' + (currentPage + 1) + ' of ' + totalSteps + ' \u00B7 ' + pct + '% complete';
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('backBtn').classList.toggle('hidden', currentPage === 0);
+
+  if (currentPage < TOTAL_LIKERT_PAGES) {
+    document.getElementById('nextBtn').textContent = 'Next';
+    renderLikertPage();
+  } else if (currentPage === 5) {
+    document.getElementById('nextBtn').textContent = 'Next';
+    renderBottleneckPage();
+  } else if (currentPage === 6) {
+    document.getElementById('nextBtn').textContent = 'See My Results';
+    renderOpenTextPage();
+  }
+}
+
+function renderLikertPage() {
+  const start = currentPage * LIKERT_PER_PAGE;
+  const end = Math.min(start + LIKERT_PER_PAGE, shuffledOrder.length);
+  let html = '';
+  for (let i = start; i < end; i++) {
+    const qi = shuffledOrder[i];
+    const q = QUESTIONS[qi];
+    const text = getQuestionText(qi);
+    const dimLabel = q.dim === 'team' ? 'Your Team' : 'Your Org';
+    const dimClass = q.dim === 'team' ? 'dim-team' : 'dim-org';
+    html += '<div class="question-block">' +
+      '<div class="question-text">' + (i + 1) + '. ' + text + ' <span class="dim-tag ' + dimClass + '">' + dimLabel + '</span></div>' +
+      '<div class="likert">';
+    for (let v = 1; v <= 5; v++) {
+      const checked = answers[qi] === v ? 'checked' : '';
+      html += '<label><input type="radio" name="q' + qi + '" value="' + v + '" ' + checked + ' onchange="answers[' + qi + ']=' + v + '"><span>' + LIKERT_LABELS[v - 1] + '</span></label>';
+    }
+    html += '</div></div>';
+  }
+  document.getElementById('questionArea').innerHTML = html;
+}
+
+function renderBottleneckPage() {
+  let html = '<h2 style="margin-bottom:4px;">Direct Assessment</h2>' +
+    '<p style="color:var(--g500); font-size:13px; margin-bottom:20px;">For each area, where do you see the biggest opportunity to improve?</p>';
+
+  for (let a = 0; a < 4; a++) {
+    html += '<div class="bottleneck-block">' +
+      '<div class="question-text" style="color:' + AREAS[a].hex + '; font-weight:600;">' + AREAS[a].name + '</div>' +
+      '<div class="bottleneck-options">';
+    for (let o = 0; o < 4; o++) {
+      const sel = bottleneckAnswers[a] === BOTTLENECK_KEYS[o] ? ' selected' : '';
+      html += '<div class="bottleneck-opt' + sel + '" onclick="selectBottleneck(' + a + ',\'' + BOTTLENECK_KEYS[o] + '\', this)">' + BOTTLENECK_OPTIONS[o] + '</div>';
+    }
+    html += '</div></div>';
+  }
+  document.getElementById('questionArea').innerHTML = html;
+}
+
+function selectBottleneck(area, key, el) {
+  bottleneckAnswers[area] = key;
+  el.parentElement.querySelectorAll('.bottleneck-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function renderOpenTextPage() {
+  let html = '<h2 style="margin-bottom:4px;">Open Responses</h2>' +
+    '<p style="color:var(--g500); font-size:13px; margin-bottom:20px;">These are optional but valuable. Share as much or as little as you like.</p>';
+
+  for (let i = 0; i < 3; i++) {
+    html += '<div class="open-text">' +
+      '<div class="question-text" style="font-style:italic; color:var(--chime-mid);">' + OPEN_PROMPTS[i] + '</div>' +
+      '<textarea placeholder="Share your thoughts (optional)..." oninput="openAnswers[' + i + ']=this.value">' + (openAnswers[i] || '') + '</textarea>' +
+      '</div>';
+  }
+  document.getElementById('questionArea').innerHTML = html;
+}
+
+function nextPage() {
+  if (currentPage < TOTAL_LIKERT_PAGES) {
+    // Validate Likert
+    const start = currentPage * LIKERT_PER_PAGE;
+    const end = Math.min(start + LIKERT_PER_PAGE, shuffledOrder.length);
+    let unanswered = 0;
+    for (let i = start; i < end; i++) if (!answers[shuffledOrder[i]]) unanswered++;
+    if (unanswered > 0) { alert('Please answer all ' + unanswered + ' remaining question' + (unanswered > 1 ? 's' : '') + ' on this page.'); return; }
+  } else if (currentPage === 5) {
+    // Validate bottleneck
+    let missing = 0;
+    for (let a = 0; a < 4; a++) if (!bottleneckAnswers[a]) missing++;
+    if (missing > 0) { alert('Please select an answer for each of the ' + missing + ' remaining area' + (missing > 1 ? 's' : '') + '.'); return; }
+  }
+
+  if (currentPage < TOTAL_PAGES - 1) {
+    currentPage++;
+    renderPage();
+    window.scrollTo(0, 0);
+  } else {
+    showResults();
+  }
+}
+
+function prevPage() {
+  if (currentPage > 0) { currentPage--; renderPage(); window.scrollTo(0, 0); }
+}
+
+// ===== SCORING =====
+function computeScores(answersObj) {
+  const scores = { team: [0,0,0,0], org: [0,0,0,0] };
+  for (let area = 0; area < 4; area++) {
+    let teamSum = 0, teamCount = 0, orgSum = 0, orgCount = 0;
+    QUESTIONS.forEach((q, i) => {
+      if (q.area !== area || answersObj[i] === undefined) return;
+      if (q.dim === 'team') { teamSum += answersObj[i]; teamCount++; }
+      else { orgSum += answersObj[i]; orgCount++; }
+    });
+    scores.team[area] = teamCount > 0 ? Math.round(((teamSum / teamCount) - 1) / 4 * 100) : 0;
+    scores.org[area] = orgCount > 0 ? Math.round(((orgSum / orgCount) - 1) / 4 * 100) : 0;
+  }
+  return scores;
+}
+
+function getLevel(score) { return LEVELS.find(l => score >= l.min && score <= l.max) || LEVELS[0]; }
+
+function getInterpretation(area, teamScore, orgScore) {
+  const gap = teamScore - orgScore;
+  const interp = INTERPS[area];
+  if (teamScore >= 70 && orgScore >= 70) return interp.bothHigh;
+  if (teamScore < 60 && orgScore < 60) return interp.bothLow;
+  if (gap > 10) return interp.gapPos;
+  if (gap < -10) return interp.gapNeg;
+  if (teamScore < 60) return interp.teamLow;
+  if (orgScore < 60) return interp.orgLow;
+  return interp.bothHigh;
+}
+
+// ===== RESULTS =====
+function showResults() {
+  const scores = computeScores(answers);
+  const tierLabel = tier === 'leader' ? 'Senior Leader' : 'Manager';
+
+  let html = '<div style="text-align:center; padding:20px 0;">' +
+    '<div style="display:inline-block; padding:4px 14px; border-radius:20px; font-size:12px; font-weight:600; background:var(--mint); color:var(--chime-dark); margin-bottom:8px;">' + tierLabel + '</div>' +
+    '<h1>Your Diagnostic Results</h1>' +
+    '<p style="color:var(--g500); margin-top:4px;">Your Team vs. Your Org across four challenge areas</p></div>';
+
+  // Matrix table
+  html += '<div class="card"><h2>The Team / Org Matrix</h2>' +
+    '<table class="matrix-table"><tr><th>Challenge Area</th><th style="color:var(--team-color);">Your Team</th><th style="color:var(--org-color);">Your Org</th><th>Gap</th></tr>';
+
+  for (let a = 0; a < 4; a++) {
+    const t = scores.team[a], o = scores.org[a];
+    const gap = t - o;
+    const tLevel = getLevel(t), oLevel = getLevel(o);
+    const gapColor = Math.abs(gap) > 15 ? 'var(--hotspot)' : Math.abs(gap) > 8 ? 'var(--friction)' : 'var(--g500)';
+    const gapSign = gap > 0 ? '+' : '';
+    html += '<tr><td style="color:' + AREAS[a].hex + '">' + AREAS[a].name + '</td>' +
+      '<td><span class="score-pill" style="background:' + tLevel.hex + '">' + t + '</span></td>' +
+      '<td><span class="score-pill" style="background:' + oLevel.hex + '">' + o + '</span></td>' +
+      '<td><span class="gap-indicator" style="color:' + gapColor + '">' + gapSign + gap + '</span></td></tr>';
+  }
+  html += '</table></div>';
+
+  // Radar chart: Team vs Org overlay
+  html += '<div class="card"><h2 style="text-align:center;">Team vs. Org Comparison</h2>' +
+    '<div class="chart-wrap"><canvas id="radarChart"></canvas></div></div>';
+
+  // Interpretations per area
+  html += '<div class="card"><h2>What This Means</h2>';
+  for (let a = 0; a < 4; a++) {
+    const t = scores.team[a], o = scores.org[a];
+    const gap = t - o;
+    const interp = getInterpretation(a, t, o);
+    html += '<div style="margin-bottom:16px; padding:12px; border-left:4px solid ' + AREAS[a].hex + '; background:' + getLevel(Math.min(t, o)).bg + '; border-radius:0 8px 8px 0;">' +
+      '<h3 style="color:' + AREAS[a].hex + '; margin-bottom:4px;">' + AREAS[a].name + '</h3>' +
+      '<p style="font-size:13px; color:var(--g700); line-height:1.5;">' + interp + '</p></div>';
+  }
+  html += '</div>';
+
+  // Gap framing note
+  html += '<div class="trust-banner" style="margin-top:16px;">' +
+    '<strong>How to read the gap:</strong> A positive gap (Team > Org) means you and your team are solid, but the org around you is creating friction. A negative gap means the org structures exist, but there may be a team-level opportunity. Both low? That is compounding friction from both directions.' +
+    '</div>';
+
+  // Actions
+  html += '<div style="text-align:center; margin-top:20px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">' +
+    '<button class="btn btn-primary" onclick="saveAndGoAggregate()">Save & View Dashboard</button>' +
+    '<button class="btn btn-secondary" onclick="window.print()">Print Results</button>' +
+    '<button class="btn btn-secondary" onclick="showScreen(\'welcome\')">New Response</button></div>';
+
+  document.getElementById('results').innerHTML = html;
+  showScreen('results');
+
+  // Draw radar
+  setTimeout(function() {
+    const canvas = document.getElementById('radarChart');
+    if (!canvas) return;
+    new Chart(canvas, {
+      type: 'radar',
+      data: {
+        labels: AREAS.map(a => a.name),
+        datasets: [
+          {
+            label: 'Your Team',
+            data: scores.team,
+            backgroundColor: 'rgba(8,145,178,0.15)',
+            borderColor: '#0891B2',
+            borderWidth: 2,
+            pointBackgroundColor: '#0891B2',
+            pointRadius: 5
+          },
+          {
+            label: 'Your Org',
+            data: scores.org,
+            backgroundColor: 'rgba(217,119,6,0.15)',
+            borderColor: '#D97706',
+            borderWidth: 2,
+            pointBackgroundColor: '#D97706',
+            pointRadius: 5
+          }
+        ]
+      },
+      options: {
+        scales: { r: { min: 0, max: 100, ticks: { stepSize: 20, font:{size:11} }, pointLabels: { font: { size: 12, weight: '600', family: 'Arial' } } } },
+        plugins: { legend: { position: 'top', labels: { font: { family: 'Arial', size: 12 } } } }
+      }
+    });
+  }, 100);
+
+  saveResponse(scores);
+}
+
+// ===== PERSISTENCE =====
+function saveResponse(scores) {
+  let responses = JSON.parse(sessionStorage.getItem('omx_diag_v3') || '[]');
+  responses.push({
+    tier: tier,
+    scores: scores,
+    answers: {...answers},
+    bottleneckAnswers: {...bottleneckAnswers},
+    openAnswers: {...openAnswers},
+    ts: Date.now()
+  });
+  sessionStorage.setItem('omx_diag_v3', JSON.stringify(responses));
+}
+
+function saveAndGoAggregate() { showScreen('aggregate'); }
+function getAllResponses() { return JSON.parse(sessionStorage.getItem('omx_diag_v3') || '[]'); }
+
+// ===== AGGREGATE DASHBOARD =====
+let aggTab = 'overview';
+
+function switchTab(tab) {
+  aggTab = tab;
+  renderAggregate();
+}
+
+function renderAggregate() {
+  const responses = getAllResponses();
+  let html = '<h1 style="margin-bottom:4px;">Aggregate Dashboard</h1>' +
+    '<p style="color:var(--g500); margin-bottom:16px;">' +
+    '<span class="response-count">' + responses.length + ' response' + (responses.length !== 1 ? 's' : '') + '</span>' +
+    (responses.length === 0 ? ' Complete the diagnostic to see results here.' : '') + '</p>';
+
+  if (responses.length === 0) {
+    html += '<div class="card" style="text-align:center; padding:40px;">' +
+      '<p style="color:var(--g400); font-size:15px;">No responses yet. Complete the diagnostic or import responses to see aggregate data.</p>' +
+      '<div style="margin-top:16px; display:flex; gap:10px; justify-content:center;">' +
+      '<button class="btn btn-primary" onclick="showScreen(\'welcome\')">Take Diagnostic</button>' +
+      '<button class="btn btn-secondary" onclick="importResponses()">Import JSON</button></div></div>';
+    document.getElementById('aggregate').innerHTML = html;
+    return;
+  }
+
+  // Tabs
+  const tabs = [
+    {key:'overview', label:'Matrix Overview'},
+    {key:'tiers', label:'Tier Comparison'},
+    {key:'bottleneck', label:'Bottleneck Check'},
+    {key:'items', label:'Top Friction Points'},
+    {key:'gaps', label:'Gap Analysis'},
+    {key:'open', label:'Open Responses'}
+  ];
+  html += '<div class="tabs">';
+  tabs.forEach(function(t) {
+    html += '<button class="tab' + (aggTab === t.key ? ' active' : '') + '" onclick="switchTab(\'' + t.key + '\')">' + t.label + '</button>';
+  });
+  html += '</div>';
+
+  if (aggTab === 'overview') html += renderOverview(responses);
+  else if (aggTab === 'tiers') html += renderTierComparison(responses);
+  else if (aggTab === 'bottleneck') html += renderBottleneckCheck(responses);
+  else if (aggTab === 'items') html += renderFrictionItems(responses);
+  else if (aggTab === 'gaps') html += renderGapAnalysis(responses);
+  else if (aggTab === 'open') html += renderOpenResponses(responses);
+
+  // Data management
+  html += '<div style="text-align:center; margin-top:20px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">' +
+    '<button class="btn btn-secondary btn-sm" onclick="exportJSON()">Export JSON</button>' +
+    '<button class="btn btn-secondary btn-sm" onclick="importResponses()">Import JSON</button>' +
+    '<button class="btn btn-secondary btn-sm" onclick="showScreen(\'welcome\')">Add Response</button>' +
+    '<button class="btn btn-secondary btn-sm" onclick="if(confirm(\'Clear all responses?\')){sessionStorage.removeItem(\'omx_diag_v3\');renderAggregate();}">Clear All</button>' +
+    '<button class="btn btn-secondary btn-sm" onclick="window.print()">Print</button></div>';
+
+  document.getElementById('aggregate').innerHTML = html;
+
+  // Draw charts after DOM update
+  if (aggTab === 'overview') setTimeout(function() { drawOverviewCharts(responses); }, 100);
+  if (aggTab === 'tiers') setTimeout(function() { drawTierCharts(responses); }, 100);
+  if (aggTab === 'gaps') setTimeout(function() { drawGapCharts(responses); }, 100);
+}
+
+function avgScoresFromResponses(resps) {
+  const result = { team: [0,0,0,0], org: [0,0,0,0] };
+  resps.forEach(function(r) {
+    for (let i = 0; i < 4; i++) {
+      result.team[i] += r.scores.team[i];
+      result.org[i] += r.scores.org[i];
+    }
+  });
+  const n = resps.length;
+  for (let i = 0; i < 4; i++) {
+    result.team[i] = Math.round(result.team[i] / n);
+    result.org[i] = Math.round(result.org[i] / n);
+  }
+  return result;
+}
+
+// === TAB 1: Matrix Overview ===
+function renderOverview(responses) {
+  const avg = avgScoresFromResponses(responses);
+  const overallTeam = Math.round(avg.team.reduce(function(a,b){return a+b;}, 0) / 4);
+  const overallOrg = Math.round(avg.org.reduce(function(a,b){return a+b;}, 0) / 4);
+  const overallGap = overallTeam - overallOrg;
+
+  let html = '<div class="card">' +
+    '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">' +
+    '<div><h2>Organization Overview</h2><p style="color:var(--g500); font-size:13px;">' + responses.length + ' responses across ' + [...new Set(responses.map(function(r){return r.tier;}))].length + ' tier(s)</p></div>' +
+    '<div style="text-align:right;">' +
+    '<span style="font-size:18px; font-weight:700; color:var(--team-color);">Team: ' + overallTeam + '</span>' +
+    '<span style="margin:0 8px; color:var(--g300);">|</span>' +
+    '<span style="font-size:18px; font-weight:700; color:var(--org-color);">Org: ' + overallOrg + '</span>' +
+    '</div></div>';
+
+  // Matrix heatmap
+  html += '<table class="matrix-table" style="margin-top:16px;"><tr><th>Challenge Area</th><th style="color:var(--team-color);">Your Team</th><th style="color:var(--org-color);">Your Org</th><th>Gap</th></tr>';
+  for (let a = 0; a < 4; a++) {
+    const t = avg.team[a], o = avg.org[a], gap = t - o;
+    const tL = getLevel(t), oL = getLevel(o);
+    const gapColor = Math.abs(gap) > 15 ? 'var(--hotspot)' : Math.abs(gap) > 8 ? 'var(--friction)' : 'var(--g500)';
+    html += '<tr><td style="color:' + AREAS[a].hex + '">' + AREAS[a].name + '</td>' +
+      '<td><span class="score-pill" style="background:' + tL.hex + '">' + t + '</span></td>' +
+      '<td><span class="score-pill" style="background:' + oL.hex + '">' + o + '</span></td>' +
+      '<td><span class="gap-indicator" style="color:' + gapColor + '">' + (gap > 0 ? '+' : '') + gap + '</span></td></tr>';
+  }
+  html += '</table>';
+
+  // Radar
+  html += '<div class="chart-wrap" style="max-width:420px;"><canvas id="aggRadar"></canvas></div></div>';
+
+  // Gap callouts
+  for (let a = 0; a < 4; a++) {
+    const gap = avg.team[a] - avg.org[a];
+    if (Math.abs(gap) > 15) {
+      const direction = gap > 0 ? 'Managers are capable, but the org is creating drag.' : 'Org structures exist, but team-level application is a gap.';
+      html += '<div class="divergence-alert"><strong>' + AREAS[a].name + ' gap: ' + (gap > 0 ? '+' : '') + gap + ' points.</strong> ' + direction + '</div>';
+    }
+  }
+
+  return html;
+}
+
+function drawOverviewCharts(responses) {
+  const avg = avgScoresFromResponses(responses);
+  const canvas = document.getElementById('aggRadar');
+  if (!canvas) return;
+  new Chart(canvas, {
+    type: 'radar',
+    data: {
+      labels: AREAS.map(function(a){return a.name;}),
+      datasets: [
+        { label: 'Team Avg', data: avg.team, backgroundColor: 'rgba(8,145,178,0.15)', borderColor: '#0891B2', borderWidth: 2, pointBackgroundColor: '#0891B2', pointRadius: 5 },
+        { label: 'Org Avg', data: avg.org, backgroundColor: 'rgba(217,119,6,0.15)', borderColor: '#D97706', borderWidth: 2, pointBackgroundColor: '#D97706', pointRadius: 5 }
+      ]
+    },
+    options: {
+      scales: { r: { min: 0, max: 100, ticks: { stepSize: 20 }, pointLabels: { font: { size: 12, weight: '600', family: 'Arial' } } } },
+      plugins: { legend: { position: 'top', labels: { font: { family: 'Arial', size: 12 } } } },
+      maintainAspectRatio: true
+    }
+  });
+}
+
+// === TAB 2: Tier Comparison ===
+function renderTierComparison(responses) {
+  const mgrs = responses.filter(function(r){return r.tier === 'manager';});
+  const ldrs = responses.filter(function(r){return r.tier === 'leader';});
+
+  if (mgrs.length === 0 || ldrs.length === 0) {
+    return '<div class="card"><p style="color:var(--g400)">Need both Manager and Senior Leader responses to show tier comparison. Currently: ' + mgrs.length + ' manager(s), ' + ldrs.length + ' leader(s).</p></div>';
+  }
+
+  const mgrAvg = avgScoresFromResponses(mgrs);
+  const ldrAvg = avgScoresFromResponses(ldrs);
+
+  let html = '<div class="card"><h2>Manager vs. Senior Leader Perception</h2>' +
+    '<p style="color:var(--g500); font-size:13px; margin-bottom:12px;">Managers (n=' + mgrs.length + ') vs. Senior Leaders (n=' + ldrs.length + ')</p>' +
+    '<div class="tier-comparison"><table><tr><th>Area</th><th>Dimension</th><th>Managers</th><th>Leaders</th><th>Gap</th></tr>';
+
+  for (let a = 0; a < 4; a++) {
+    // Team row
+    const mT = mgrAvg.team[a], lT = ldrAvg.team[a], gT = lT - mT;
+    const mO = mgrAvg.org[a], lO = ldrAvg.org[a], gO = lO - mO;
+    html += '<tr><td rowspan="2" style="font-weight:600; color:' + AREAS[a].hex + '; vertical-align:middle;">' + AREAS[a].name + '</td>' +
+      '<td><span class="dim-tag dim-team">Team</span></td>' +
+      '<td style="font-weight:700; color:' + getLevel(mT).hex + '">' + mT + '</td>' +
+      '<td style="font-weight:700; color:' + getLevel(lT).hex + '">' + lT + '</td>' +
+      '<td style="font-weight:700; color:' + (Math.abs(gT) >= 15 ? 'var(--hotspot)' : 'var(--g500)') + '">' + (gT > 0 ? '+' : '') + gT + '</td></tr>';
+    html += '<tr><td><span class="dim-tag dim-org">Org</span></td>' +
+      '<td style="font-weight:700; color:' + getLevel(mO).hex + '">' + mO + '</td>' +
+      '<td style="font-weight:700; color:' + getLevel(lO).hex + '">' + lO + '</td>' +
+      '<td style="font-weight:700; color:' + (Math.abs(gO) >= 15 ? 'var(--hotspot)' : 'var(--g500)') + '">' + (gO > 0 ? '+' : '') + gO + '</td></tr>';
+  }
+  html += '</table></div></div>';
+
+  // Perception gap alerts
+  for (let a = 0; a < 4; a++) {
+    for (const dim of ['team', 'org']) {
+      const mScore = dim === 'team' ? mgrAvg.team[a] : mgrAvg.org[a];
+      const lScore = dim === 'team' ? ldrAvg.team[a] : ldrAvg.org[a];
+      const gap = lScore - mScore;
+      if (Math.abs(gap) >= 15) {
+        const dimLabel = dim === 'team' ? 'Team' : 'Org';
+        html += '<div class="divergence-alert"><strong>Perception gap: ' + AREAS[a].name + ' (' + dimLabel + ').</strong> Leaders see it at ' + lScore + ', Managers see it at ' + mScore + ' (' + Math.abs(gap) + '-point gap). This means the two groups are experiencing this differently.</div>';
+      }
+    }
+  }
+
+  // Bar chart
+  html += '<div class="card"><canvas id="tierChart" height="220"></canvas></div>';
+  return html;
+}
+
+function drawTierCharts(responses) {
+  const mgrs = responses.filter(function(r){return r.tier === 'manager';});
+  const ldrs = responses.filter(function(r){return r.tier === 'leader';});
+  if (mgrs.length === 0 || ldrs.length === 0) return;
+  const mgrAvg = avgScoresFromResponses(mgrs);
+  const ldrAvg = avgScoresFromResponses(ldrs);
+
+  const canvas = document.getElementById('tierChart');
+  if (!canvas) return;
+
+  new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: AREAS.map(function(a){return a.name;}),
+      datasets: [
+        { label: 'Mgr Team', data: mgrAvg.team, backgroundColor: '#0891B299', borderColor: '#0891B2', borderWidth: 1 },
+        { label: 'Mgr Org', data: mgrAvg.org, backgroundColor: '#D9770699', borderColor: '#D97706', borderWidth: 1 },
+        { label: 'Ldr Team', data: ldrAvg.team, backgroundColor: '#0891B244', borderColor: '#0891B2', borderWidth: 1, borderDash: [4,4] },
+        { label: 'Ldr Org', data: ldrAvg.org, backgroundColor: '#D9770644', borderColor: '#D97706', borderWidth: 1, borderDash: [4,4] }
+      ]
+    },
+    options: {
+      scales: { y: { min: 0, max: 100, ticks: { stepSize: 20 } } },
+      plugins: { legend: { position: 'top', labels: { font: { family: 'Arial', size: 11 } } } },
+      maintainAspectRatio: true
+    }
+  });
+}
+
+// === TAB 3: Bottleneck Check ===
+function renderBottleneckCheck(responses) {
+  let html = '<div class="card"><h2>Bottleneck Self-Assessment</h2>' +
+    '<p style="color:var(--g500); font-size:13px; margin-bottom:16px;">Where respondents said the biggest opportunity is, cross-referenced with Likert gap scores.</p>';
+
+  for (let a = 0; a < 4; a++) {
+    const counts = { team: 0, org: 0, both: 0, neither: 0 };
+    let teamSum = 0, orgSum = 0, n = 0;
+    responses.forEach(function(r) {
+      if (r.bottleneckAnswers && r.bottleneckAnswers[a]) counts[r.bottleneckAnswers[a]]++;
+      teamSum += r.scores.team[a]; orgSum += r.scores.org[a]; n++;
+    });
+    const teamAvg = Math.round(teamSum / n);
+    const orgAvg = Math.round(orgSum / n);
+    const gap = teamAvg - orgAvg;
+    const total = counts.team + counts.org + counts.both + counts.neither;
+
+    html += '<div style="margin-bottom:20px; padding:16px; border-left:4px solid ' + AREAS[a].hex + '; background:var(--g50); border-radius:0 8px 8px 0;">' +
+      '<h3 style="color:' + AREAS[a].hex + '; margin-bottom:8px;">' + AREAS[a].name + '</h3>' +
+      '<div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:8px;">' +
+      '<div style="font-size:13px;"><strong>Likert Gap:</strong> <span style="font-weight:700; color:' + (Math.abs(gap) > 15 ? 'var(--hotspot)' : 'var(--g700)') + '">' + (gap > 0 ? '+' : '') + gap + '</span> (Team ' + teamAvg + ' vs Org ' + orgAvg + ')</div></div>' +
+      '<div style="display:flex; gap:8px; flex-wrap:wrap;">';
+
+    [['team','Within Team','#0891B2'],['org','Across Org','#D97706'],['both','Both','#7C3AED'],['neither','Well Enough','#16A34A']].forEach(function(item) {
+      const pct = total > 0 ? Math.round(counts[item[0]] / total * 100) : 0;
+      html += '<div style="padding:8px 12px; border-radius:8px; background:white; border:1px solid var(--g200); font-size:12px; text-align:center;">' +
+        '<div style="font-weight:700; color:' + item[2] + ';">' + counts[item[0]] + ' (' + pct + '%)</div>' +
+        '<div style="color:var(--g500);">' + item[1] + '</div></div>';
+    });
+
+    html += '</div>';
+
+    // Cross-reference insight
+    if (gap > 15 && counts.org >= counts.team) {
+      html += '<div style="margin-top:8px; font-size:13px; color:var(--g700);"><strong>Consistent signal:</strong> Likert data and self-assessment both point to org-level friction.</div>';
+    } else if (gap < -10 && counts.team >= counts.org) {
+      html += '<div style="margin-top:8px; font-size:13px; color:var(--g700);"><strong>Consistent signal:</strong> Both data sources point to team-level opportunity.</div>';
+    } else if (gap > 10 && counts.team > counts.org) {
+      html += '<div style="margin-top:8px; font-size:13px; color:var(--g700);"><strong>Mixed signal:</strong> Likert says org friction, but self-assessment says team. Worth digging into.</div>';
+    }
+
+    html += '</div>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+// === TAB 4: Top Friction Points ===
+function renderFrictionItems(responses) {
+  if (responses.length === 0) return '<div class="card"><p style="color:var(--g400)">No responses yet.</p></div>';
+
+  const itemAvg = QUESTIONS.map(function(q, i) {
+    let sum = 0, count = 0;
+    responses.forEach(function(r) { if (r.answers[i] !== undefined) { sum += r.answers[i]; count++; } });
+    return { idx: i, text: q.text, area: q.area, dim: q.dim, avg: count > 0 ? sum / count : 0, score: count > 0 ? Math.round(((sum / count) - 1) / 4 * 100) : 0 };
+  });
+
+  itemAvg.sort(function(a, b) { return a.score - b.score; });
+  const top10 = itemAvg.slice(0, 10);
+
+  // Count how many are team vs org
+  let teamCount = 0, orgCount = 0;
+  top10.forEach(function(item) { if (item.dim === 'team') teamCount++; else orgCount++; });
+
+  let html = '<div class="card"><h2>Top 10 Friction Points</h2>' +
+    '<p style="color:var(--g500); font-size:13px; margin-bottom:16px;">Lowest-scoring individual items. Each tagged by area and dimension.</p>';
+
+  top10.forEach(function(item) {
+    const level = getLevel(item.score);
+    const dimLabel = item.dim === 'team' ? 'Team' : 'Org';
+    const dimClass = item.dim === 'team' ? 'dim-team' : 'dim-org';
+    html += '<div class="friction-item">' +
+      '<div class="q-text"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + AREAS[item.area].hex + ';margin-right:8px;"></span>' +
+      item.text + ' <span class="dim-tag ' + dimClass + '">' + dimLabel + '</span></div>' +
+      '<div class="q-score" style="color:' + level.hex + '">' + item.score + '</div></div>';
+  });
+  html += '</div>';
+
+  // Where friction concentrates
+  html += '<div class="card"><h3>Where friction concentrates</h3>' +
+    '<div style="display:flex; gap:16px; margin:12px 0;">' +
+    '<div style="padding:12px 16px; border-radius:8px; background:#E0F2FE; text-align:center;"><span style="font-size:24px; font-weight:700; color:#0891B2;">' + teamCount + '</span><div style="font-size:12px; color:#0369A1;">Team items</div></div>' +
+    '<div style="padding:12px 16px; border-radius:8px; background:#FEF3C7; text-align:center;"><span style="font-size:24px; font-weight:700; color:#D97706;">' + orgCount + '</span><div style="font-size:12px; color:#92400E;">Org items</div></div></div>';
+
+  if (orgCount >= 7) {
+    html += '<p style="font-size:13px; color:var(--g700);">Friction is overwhelmingly on the org side. The system around managers is the bottleneck, not the managers themselves.</p>';
+  } else if (teamCount >= 7) {
+    html += '<p style="font-size:13px; color:var(--g700);">Friction is mostly within teams. Manager capability development may be the highest-leverage investment.</p>';
+  } else {
+    html += '<p style="font-size:13px; color:var(--g700);">Friction is split between team and org dimensions. Both need attention.</p>';
+  }
+  html += '</div>';
+
+  return html;
+}
+
+// === TAB 5: Gap Analysis ===
+function renderGapAnalysis(responses) {
+  const avg = avgScoresFromResponses(responses);
+
+  let gaps = [];
+  for (let a = 0; a < 4; a++) {
+    gaps.push({ area: a, team: avg.team[a], org: avg.org[a], gap: avg.team[a] - avg.org[a] });
+  }
+  gaps.sort(function(a, b) { return Math.abs(b.gap) - Math.abs(a.gap); });
+
+  let html = '<div class="card"><h2>Gap Analysis: Team vs. Org</h2>' +
+    '<p style="color:var(--g500); font-size:13px; margin-bottom:16px;">Sorted by largest gap. Positive = team is strong but org creates friction. Negative = org is fine but team practices need work.</p>';
+
+  gaps.forEach(function(g) {
+    const interp = getInterpretation(g.area, g.team, g.org);
+    const barWidth = Math.min(Math.abs(g.gap), 50);
+    const barColor = g.gap > 0 ? '#0891B2' : '#D97706';
+    const barAlign = g.gap > 0 ? 'right' : 'left';
+
+    html += '<div style="margin-bottom:20px; padding:16px; background:var(--g50); border-radius:8px;">' +
+      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
+      '<h3 style="color:' + AREAS[g.area].hex + '; margin-bottom:0;">' + AREAS[g.area].name + '</h3>' +
+      '<span style="font-weight:700; font-size:18px; color:' + (Math.abs(g.gap) > 15 ? 'var(--hotspot)' : 'var(--g700)') + '">' + (g.gap > 0 ? '+' : '') + g.gap + '</span></div>' +
+      '<div style="display:flex; gap:24px; margin-bottom:8px;">' +
+      '<div style="font-size:13px;"><span style="color:var(--team-color); font-weight:700;">Team: ' + g.team + '</span></div>' +
+      '<div style="font-size:13px;"><span style="color:var(--org-color); font-weight:700;">Org: ' + g.org + '</span></div></div>' +
+      '<div style="height:8px; background:var(--g200); border-radius:4px; position:relative; overflow:hidden;">' +
+      '<div style="position:absolute; ' + barAlign + ':50%; width:' + barWidth + '%; height:100%; background:' + barColor + '; border-radius:4px;"></div></div>' +
+      '<p style="font-size:13px; color:var(--g600); margin-top:8px;">' + interp + '</p></div>';
+  });
+
+  html += '</div>';
+
+  // Divergence chart
+  html += '<div class="card"><canvas id="gapChart" height="200"></canvas></div>';
+
+  return html;
+}
+
+function drawGapCharts(responses) {
+  const avg = avgScoresFromResponses(responses);
+  const canvas = document.getElementById('gapChart');
+  if (!canvas) return;
+  new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: AREAS.map(function(a){return a.name;}),
+      datasets: [
+        { label: 'Team', data: avg.team, backgroundColor: '#0891B2CC', borderColor: '#0891B2', borderWidth: 1 },
+        { label: 'Org', data: avg.org, backgroundColor: '#D97706CC', borderColor: '#D97706', borderWidth: 1 }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      scales: { x: { min: 0, max: 100, ticks: { stepSize: 20 } } },
+      plugins: { legend: { position: 'top', labels: { font: { family: 'Arial', size: 12 } } } },
+      maintainAspectRatio: true
+    }
+  });
+}
+
+// === TAB 6: Open Responses ===
+function renderOpenResponses(responses) {
+  const grouped = { 0: [], 1: [], 2: [] };
+  const tierLabels = { leader: 'Senior Leader', manager: 'Manager' };
+
+  responses.forEach(function(r) {
+    for (let k = 0; k < 3; k++) {
+      if (r.openAnswers && r.openAnswers[k] && r.openAnswers[k].trim()) {
+        grouped[k].push({ tier: r.tier, text: r.openAnswers[k] });
+      }
+    }
+  });
+
+  const totalOpen = grouped[0].length + grouped[1].length + grouped[2].length;
+  if (totalOpen === 0) return '<div class="card"><p style="color:var(--g400)">No open-text responses yet.</p></div>';
+
+  const promptLabels = ['Internal (Team) Fix', 'External (Org) Fix', 'System vs. Skill Moment'];
+
+  let html = '<div class="card"><h2>Open-Text Responses</h2>' +
+    '<p style="color:var(--g500); font-size:13px; margin-bottom:16px;">' + totalOpen + ' response' + (totalOpen !== 1 ? 's' : '') + ' across 3 prompts</p>';
+
+  for (let k = 0; k < 3; k++) {
+    if (grouped[k].length === 0) continue;
+    html += '<h3 style="margin-top:16px; margin-bottom:8px;">' + promptLabels[k] + '</h3>' +
+      '<p style="font-size:12px; color:var(--g400); margin-bottom:8px; font-style:italic;">' + OPEN_PROMPTS[k] + '</p>' +
+      '<div class="open-responses">';
+    grouped[k].forEach(function(r) {
+      html += '<div class="open-response-item"><div class="resp-meta">' + tierLabels[r.tier] + '</div><div>' + escapeHtml(r.text) + '</div></div>';
+    });
+    html += '</div>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ===== EXPORT / IMPORT =====
+function exportJSON() {
+  const data = getAllResponses();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'omx-ops-diagnostic-responses.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importResponses() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!Array.isArray(data)) throw new Error('Invalid format');
+        let existing = getAllResponses();
+        existing = existing.concat(data);
+        sessionStorage.setItem('omx_diag_v3', JSON.stringify(existing));
+        renderAggregate();
+        alert('Imported ' + data.length + ' response(s). Total: ' + existing.length);
+      } catch(err) { alert('Error importing: ' + err.message); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+</script>
+</body>
+</html>
