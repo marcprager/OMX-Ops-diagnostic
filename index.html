@@ -149,9 +149,7 @@ h3 { font-size: 16px; font-weight: 600; color: var(--chime-dark); margin-bottom:
 
   <div style="text-align:center; margin-top:16px;">
     <button class="btn btn-primary" id="startBtn" onclick="startAssessment()" disabled>Start Diagnostic</button>
-    <div style="margin-top:12px;">
-      <button class="btn btn-secondary btn-sm" onclick="showScreen('aggregate')">View Aggregate Dashboard</button>
-    </div>
+  </div>
   </div>
 </div>
 
@@ -675,6 +673,18 @@ async function saveResponse(scores) {
 
 function saveAndGoAggregate() { showScreen('aggregate'); }
 
+async function clearAllResponses() {
+  if (!confirm('Clear all responses? This cannot be undone.')) return;
+  const { error } = await db.from('responses').delete().gte('created_at', '2000-01-01');
+  if (error) {
+    console.error('Failed to clear responses:', error);
+    alert('Failed to clear responses: ' + error.message);
+  } else {
+    alert('All responses cleared.');
+    renderAggregate();
+  }
+}
+
 async function getAllResponses() {
   const { data, error } = await db
     .from('responses')
@@ -744,7 +754,7 @@ async function renderAggregate() {
     '<button class="btn btn-secondary btn-sm" onclick="exportJSON()">Export JSON</button>' +
     '<button class="btn btn-secondary btn-sm" onclick="importResponses()">Import JSON</button>' +
     '<button class="btn btn-secondary btn-sm" onclick="showScreen(\'welcome\')">Add Response</button>' +
-    '<button class="btn btn-secondary btn-sm" onclick="if(confirm(\'Clear all responses? This cannot be undone.\')){db.from(\'responses\').delete().neq(\'id\',\'00000000-0000-0000-0000-000000000000\').then(function(){renderAggregate();});}">Clear All</button>' +
+    '<button class="btn btn-secondary btn-sm" onclick="clearAllResponses()">Clear All</button>' +
     '<button class="btn btn-secondary btn-sm" onclick="window.print()">Print</button></div>';
 
   document.getElementById('aggregate').innerHTML = html;
