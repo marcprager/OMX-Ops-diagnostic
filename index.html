@@ -136,20 +136,19 @@ h3 { font-size: 16px; font-weight: 600; color: var(--chime-dark); margin-bottom:
     <div class="tier-grid">
       <div class="tier-card" onclick="selectTier('manager')" id="tc-manager">
         <div class="tier-icon">&#x1F4CB;</div>
-        <div class="tier-label">Manager</div>
+        <div class="tier-label">Manager (M1/M2)</div>
         <div class="tier-desc">People manager with direct reports</div>
       </div>
       <div class="tier-card" onclick="selectTier('leader')" id="tc-leader">
         <div class="tier-icon">&#x1F3AF;</div>
-        <div class="tier-label">Senior Leader</div>
-        <div class="tier-desc">Director+ / Carey's directs</div>
+        <div class="tier-label">Senior Leader (M3/M4+)</div>
+        <div class="tier-desc">Director+ or equivalent</div>
       </div>
     </div>
   </div>
 
   <div style="text-align:center; margin-top:16px;">
     <button class="btn btn-primary" id="startBtn" onclick="startAssessment()" disabled>Start Diagnostic</button>
-  </div>
   </div>
 </div>
 
@@ -291,10 +290,10 @@ const OPEN_PROMPTS = [
 const LIKERT_LABELS = ["Strongly Disagree", "Disagree", "Sometimes True", "Agree", "Strongly Agree"];
 
 const LEVELS = [
-  {min:0, max:39, label:"Hot Spot", color:"var(--hotspot)", hex:"#DC2626", bg:"#FEE2E2"},
-  {min:40, max:59, label:"Friction", color:"var(--friction)", hex:"#EA580C", bg:"#FFF7ED"},
-  {min:60, max:79, label:"Watch", color:"var(--watch)", hex:"#CA8A04", bg:"#FEF9C3"},
-  {min:80, max:100, label:"Healthy", color:"var(--healthy)", hex:"#16A34A", bg:"#DCFCE7"},
+  {min:0, max:29, label:"Hot Spot", color:"var(--hotspot)", hex:"#DC2626", bg:"#FEE2E2"},
+  {min:30, max:49, label:"Friction", color:"var(--friction)", hex:"#EA580C", bg:"#FFF7ED"},
+  {min:50, max:64, label:"Watch", color:"var(--watch)", hex:"#CA8A04", bg:"#FEF9C3"},
+  {min:65, max:100, label:"Healthy", color:"var(--healthy)", hex:"#16A34A", bg:"#DCFCE7"},
 ];
 
 // Dynamic interpretations based on area + dimension + gap direction
@@ -303,6 +302,7 @@ const INTERPS = {
     teamLow: "Decision-making within teams may be unclear or slow. Managers could benefit from defining decision rights more explicitly.",
     orgLow: "Cross-functional decision-making lacks clarity. Ownership, escalation paths, and pace are creating drag.",
     bothLow: "Decision friction is compounding. Both team-level authority and org-level coordination need attention.",
+    watchZone: "Decision-making is functional but not yet consistent. Small improvements at both levels could unlock real momentum.",
     bothHigh: "Decision-making is largely working at both the team and org level.",
     gapPos: "Managers are capable decision-makers, but the org creates friction around them.",
     gapNeg: "Org decision infrastructure exists, but managers may need support applying it."
@@ -311,14 +311,16 @@ const INTERPS = {
     teamLow: "Prioritization within teams needs work. Managers may need frameworks for trade-off conversations.",
     orgLow: "The org is adding work without clear trade-offs. Capacity pressure is real and likely unsustainable.",
     bothLow: "Prioritization is breaking down everywhere. Both team-level discipline and org-level capacity planning need fixing.",
+    watchZone: "Prioritization is happening but unevenly. Clearer frameworks for trade-offs and capacity planning would help.",
     bothHigh: "Prioritization and workload management are solid across the board.",
-    gapPos: "Managers prioritize well within their teams, but the org isn't holding up its end of the bargain on capacity.",
-    gapNeg: "Org-level priorities are communicated, but managers may struggle to translate them into team-level action."
+    gapPos: "Managers prioritize well within their teams, but the org isn't managing capacity effectively at scale.",
+    gapNeg: "Org-level priorities are communicated, but managers may need support translating them into team-level action."
   },
   2: {
     teamLow: "Performance management within teams is inconsistent. Expectations, feedback, and follow-through may be gaps.",
     orgLow: "Org-level accountability is weak. Ownership of cross-team deliverables and follow-through on commitments need tightening.",
     bothLow: "Accountability gaps at both levels. Performance conversations and org-level ownership are both lagging.",
+    watchZone: "Accountability exists but isn't consistent. Tightening expectations and follow-through at both levels would strengthen this.",
     bothHigh: "Accountability is clear and consistent at both the team and org level.",
     gapPos: "Managers hold their teams accountable, but the org doesn't do the same across functions.",
     gapNeg: "Org structures exist for accountability, but managers may not be applying them consistently within their teams."
@@ -326,7 +328,8 @@ const INTERPS = {
   3: {
     teamLow: "Communication within teams needs improvement. Context, rituals, and clarity may be lacking.",
     orgLow: "Org-level communication is a gap. Context isn't cascading, and cross-functional coordination depends too much on relationships.",
-    bothLow: "Communication is failing at both levels. Teams are misaligned, and the org isn't providing the context to fix it.",
+    bothLow: "Communication gaps exist at both levels. Teams are misaligned, and the org isn't providing enough context to close the gap.",
+    watchZone: "Communication is adequate but not sharp. More consistent rituals and clearer context-sharing would move this forward.",
     bothHigh: "Communication is strong. Teams are aligned, and the org provides good context.",
     gapPos: "Managers communicate well to their teams, but the org isn't giving them enough to work with.",
     gapNeg: "Org-level communication exists, but managers may not be translating it effectively for their teams."
@@ -426,7 +429,7 @@ function startAssessment() {
 // ===== ASSESSMENT RENDERING =====
 function renderPage() {
   const totalSteps = TOTAL_PAGES;
-  const pct = Math.round((currentPage / totalSteps) * 100);
+  const pct = Math.round(((currentPage + 1) / totalSteps) * 100);
   document.getElementById('progressText').textContent = 'Page ' + (currentPage + 1) + ' of ' + totalSteps + ' \u00B7 ' + pct + '% complete';
   document.getElementById('progressFill').style.width = pct + '%';
   document.getElementById('backBtn').classList.toggle('hidden', currentPage === 0);
@@ -466,7 +469,7 @@ function renderLikertPage() {
 }
 
 function renderBottleneckPage() {
-  let html = '<h2 style="margin-bottom:4px;">Direct Assessment</h2>' +
+  let html = '<h2 style="margin-bottom:4px;">Where\u2019s the Opportunity?</h2>' +
     '<p style="color:var(--g500); font-size:13px; margin-bottom:20px;">For each area, where do you see the biggest opportunity to improve?</p>';
 
   for (let a = 0; a < 4; a++) {
@@ -550,12 +553,18 @@ function getLevel(score) { return LEVELS.find(l => score >= l.min && score <= l.
 function getInterpretation(area, teamScore, orgScore) {
   const gap = teamScore - orgScore;
   const interp = INTERPS[area];
-  if (teamScore >= 70 && orgScore >= 70) return interp.bothHigh;
-  if (teamScore < 60 && orgScore < 60) return interp.bothLow;
+  if (teamScore >= 65 && orgScore >= 65) return interp.bothHigh;
+  // Check large gaps BEFORE bothLow – a +30 gap means the org is the problem,
+  // even if team is also below threshold
+  if (gap >= 20) return interp.gapPos;
+  if (gap <= -20) return interp.gapNeg;
+  if (teamScore < 50 && orgScore < 50) return interp.bothLow;
   if (gap > 10) return interp.gapPos;
   if (gap < -10) return interp.gapNeg;
-  if (teamScore < 60) return interp.teamLow;
-  if (orgScore < 60) return interp.orgLow;
+  if (teamScore < 50) return interp.teamLow;
+  if (orgScore < 50) return interp.orgLow;
+  // Both in Watch zone (50-64): neither high nor low
+  if (teamScore < 65 || orgScore < 65) return interp.watchZone;
   return interp.bothHigh;
 }
 
@@ -567,7 +576,7 @@ function showResults() {
   let html = '<div style="text-align:center; padding:20px 0;">' +
     '<div style="display:inline-block; padding:4px 14px; border-radius:20px; font-size:12px; font-weight:600; background:var(--mint); color:var(--chime-dark); margin-bottom:8px;">' + tierLabel + '</div>' +
     '<h1>Your Diagnostic Results</h1>' +
-    '<p style="color:var(--g500); margin-top:4px;">Your Team vs. Your Org across four challenge areas</p></div>';
+    '<p style="color:var(--g500); margin-top:4px;">Your Team vs. Your Org across four focus areas</p></div>';
 
   // Matrix table
   html += '<div class="card"><h2>The Team / Org Matrix</h2>' +
@@ -604,7 +613,7 @@ function showResults() {
 
   // Gap framing note
   html += '<div class="trust-banner" style="margin-top:16px;">' +
-    '<strong>How to read the gap:</strong> A positive gap (Team > Org) means you and your team are solid, but the org around you is creating friction. A negative gap means the org structures exist, but there may be a team-level opportunity. Both low? That is compounding friction from both directions.' +
+    '<strong>How to read the gap:</strong> A positive gap (Team > Org) means you and your team are solid, but the org around you is creating friction. A negative gap means the org structures exist, but there may be a team-level opportunity. When both are low, friction compounds from both directions.' +
     '</div>';
 
   // Actions – respondents see a thank-you, not the dashboard
@@ -708,6 +717,7 @@ async function getAllResponses() {
 
 // ===== AGGREGATE DASHBOARD =====
 let aggTab = 'status';
+let activeCharts = {};
 
 function switchTab(tab) {
   aggTab = tab;
@@ -768,6 +778,7 @@ async function renderAggregate() {
 
 function avgScoresFromResponses(resps) {
   const result = { team: [0,0,0,0], org: [0,0,0,0] };
+  if (resps.length === 0) return result;
   resps.forEach(function(r) {
     for (let i = 0; i < 4; i++) {
       result.team[i] += r.scores.team[i];
@@ -881,7 +892,8 @@ function drawOverviewCharts(responses) {
   const avg = avgScoresFromResponses(responses);
   const canvas = document.getElementById('aggRadar');
   if (!canvas) return;
-  new Chart(canvas, {
+  if (activeCharts.aggRadar) activeCharts.aggRadar.destroy();
+  activeCharts.aggRadar = new Chart(canvas, {
     type: 'radar',
     data: {
       labels: AREAS.map(function(a){return a.name;}),
@@ -957,8 +969,8 @@ function drawTierCharts(responses) {
 
   const canvas = document.getElementById('tierChart');
   if (!canvas) return;
-
-  new Chart(canvas, {
+  if (activeCharts.tierChart) activeCharts.tierChart.destroy();
+  activeCharts.tierChart = new Chart(canvas, {
     type: 'bar',
     data: {
       labels: AREAS.map(function(a){return a.name;}),
@@ -1117,7 +1129,8 @@ function drawGapCharts(responses) {
   const avg = avgScoresFromResponses(responses);
   const canvas = document.getElementById('gapChart');
   if (!canvas) return;
-  new Chart(canvas, {
+  if (activeCharts.gapChart) activeCharts.gapChart.destroy();
+  activeCharts.gapChart = new Chart(canvas, {
     type: 'bar',
     data: {
       labels: AREAS.map(function(a){return a.name;}),
@@ -1204,6 +1217,7 @@ function importResponses() {
             answers: r.answers,
             bottleneck_answers: r.bottleneckAnswers || r.bottleneck_answers || {},
             open_answers: r.openAnswers || r.open_answers || {},
+            token: r.token || null,
           };
         });
         const { error } = await db.from('responses').insert(rows);
