@@ -127,10 +127,11 @@ h3 { font-size: 16px; font-weight: 600; color: var(--chime-dark); margin-bottom:
   </div>
 
   <div class="trust-banner">
-    This is not a performance evaluation. There are no right or wrong answers. Your honest perspective helps us understand whether challenges are about team practices, organizational systems, or both.
+    This is not a performance evaluation. There are no right or wrong answers. Your responses are anonymous and cannot be traced back to you individually. Your honest perspective helps us understand whether challenges are about team practices, organizational systems, or both.
   </div>
 
   <div class="card">
+    <p style="font-size:13px; color:var(--g500); margin-bottom:16px;">This takes about <strong style="color:var(--g700);">8 – 10 minutes</strong>. You'll rate 40 statements across four areas, answer a few short questions, and see your personal results immediately.</p>
     <h3>What's your role?</h3>
     <p style="font-size:13px; color:var(--g500); margin-bottom:12px;">This helps us see how experiences differ across the org.</p>
     <div class="tier-grid">
@@ -180,10 +181,11 @@ const urlParams = new URLSearchParams(window.location.search);
 const TOKEN = urlParams.get('t');
 const IS_ADMIN = urlParams.get('admin') === 'true';
 
-// Valid tokens – add your 20 manager tokens here
+// Valid tokens – 30 manager/leader tokens
 const VALID_TOKENS = [
   'dm01','dm02','dm03','dm04','dm05','dm06','dm07','dm08','dm09','dm10',
-  'dm11','dm12','dm13','dm14','dm15','dm16','dm17','dm18','dm19','dm20'
+  'dm11','dm12','dm13','dm14','dm15','dm16','dm17','dm18','dm19','dm20',
+  'dm21','dm22','dm23','dm24','dm25','dm26','dm27','dm28','dm29','dm30'
 ];
 
 // On page load, validate the token
@@ -216,11 +218,11 @@ window.addEventListener('DOMContentLoaded', async function() {
 const QUESTIONS = [
   // === AREA 0: Decision-Making ===
   // Team
-  {text:"My team knows which decisions they can make without coming to me.", area:0, dim:"team", alt:{leader:"My managers' teams know which decisions they can make autonomously."}},
-  {text:"I make decisions at a reasonable pace. My team isn't waiting on me.", area:0, dim:"team", alt:{leader:"My managers make decisions at a reasonable pace. Their teams aren't waiting on them."}},
-  {text:"When my team faces ambiguity, we have a clear way to resolve it.", area:0, dim:"team", alt:{leader:"When my managers' teams face ambiguity, they have a clear way to resolve it."}},
-  {text:"My direct reports would say decision-making within our team is efficient.", area:0, dim:"team", alt:{leader:"My managers' direct reports would say decision-making within their teams is efficient."}},
-  {text:"I'm confident in my ability to make the right call with incomplete information.", area:0, dim:"team", alt:{leader:"My managers are confident making the right call with incomplete information."}},
+  {text:"My team knows which decisions they can make without coming to me.", area:0, dim:"team", alt:{leader:"Managers I lead have teams that know which decisions they can make autonomously."}},
+  {text:"I make decisions at a reasonable pace. My team isn't waiting on me.", area:0, dim:"team", alt:{leader:"Managers I lead make decisions at a reasonable pace. Their teams aren't waiting on them."}},
+  {text:"When my team faces ambiguity, we have a clear way to resolve it.", area:0, dim:"team", alt:{leader:"When their teams face ambiguity, managers I lead have a clear way to resolve it."}},
+  {text:"My direct reports would say decision-making within our team is efficient.", area:0, dim:"team", alt:{leader:"Direct reports of managers I lead would say decision-making within their teams is efficient."}},
+  {text:"I'm confident in my ability to make the right call with incomplete information.", area:0, dim:"team", alt:{leader:"Managers I lead are confident making the right call with incomplete information."}},
   // Org
   {text:"Cross-functional decisions have clear ownership. I know who makes the call.", area:0, dim:"org", alt:{}},
   {text:"Escalation paths outside my team are well-defined and understood.", area:0, dim:"org", alt:{}},
@@ -230,11 +232,11 @@ const QUESTIONS = [
 
   // === AREA 1: Prioritization & Workload ===
   // Team
-  {text:"I run prioritization conversations that my team finds useful and clear.", area:1, dim:"team", alt:{leader:"My managers run prioritization conversations that their teams find useful."}},
-  {text:"My team knows what 'good enough' looks like for recurring work.", area:1, dim:"team", alt:{leader:"My managers' teams know what 'good enough' looks like for recurring work."}},
-  {text:"I use data to anchor trade-off conversations rather than relying on gut feel.", area:1, dim:"team", alt:{leader:"My managers use data to anchor trade-off conversations."}},
-  {text:"When priorities shift, my team adjusts without significant confusion or rework.", area:1, dim:"team", alt:{leader:"When priorities shift, my managers' teams adjust without significant confusion."}},
-  {text:"I'm able to say no or defer work within my team that doesn't align with our goals.", area:1, dim:"team", alt:{leader:"My managers are able to say no or defer work that doesn't align with goals."}},
+  {text:"I run prioritization conversations that my team finds useful and clear.", area:1, dim:"team", alt:{leader:"Managers I lead run prioritization conversations that their teams find useful."}},
+  {text:"My team knows what 'good enough' looks like for recurring work.", area:1, dim:"team", alt:{leader:"Managers I lead have teams that know what 'good enough' looks like for recurring work."}},
+  {text:"I use data to anchor trade-off conversations rather than relying on gut feel.", area:1, dim:"team", alt:{leader:"Managers I lead use data to anchor trade-off conversations."}},
+  {text:"When priorities shift, my team adjusts without significant confusion or rework.", area:1, dim:"team", alt:{leader:"When priorities shift, managers I lead help their teams adjust without significant confusion."}},
+  {text:"I'm able to say no or defer work within my team that doesn't align with our goals.", area:1, dim:"team", alt:{leader:"Managers I lead are able to say no or defer work that doesn't align with goals."}},
   // Org
   {text:"When new work comes from leadership or other teams, there's a real conversation about what gets deprioritized.", area:1, dim:"org", alt:{}},
   {text:"KTLO and new initiatives are balanced realistically at the org level.", area:1, dim:"org", alt:{}},
@@ -244,11 +246,11 @@ const QUESTIONS = [
 
   // === AREA 2: Accountability & Performance ===
   // Team
-  {text:"I set clear expectations with my direct reports about what good performance looks like.", area:2, dim:"team", alt:{leader:"My managers set clear performance expectations with their direct reports."}},
-  {text:"When someone on my team is underperforming, I address it directly and promptly.", area:2, dim:"team", alt:{leader:"When someone is underperforming, my managers address it directly and promptly."}},
-  {text:"I give regular, specific feedback, not just during review cycles.", area:2, dim:"team", alt:{leader:"My managers give regular, specific feedback, not just during review cycles."}},
-  {text:"I hold my team accountable for outcomes, not just effort or activity.", area:2, dim:"team", alt:{leader:"My managers hold their teams accountable for outcomes, not just effort."}},
-  {text:"Accountability is distributed fairly within my team. It doesn't fall on a few people.", area:2, dim:"team", alt:{leader:"Accountability is distributed fairly within my managers' teams."}},
+  {text:"I set clear expectations with my direct reports about what good performance looks like.", area:2, dim:"team", alt:{leader:"Managers I lead set clear performance expectations with their direct reports."}},
+  {text:"When someone on my team is underperforming, I address it directly and promptly.", area:2, dim:"team", alt:{leader:"When someone is underperforming, managers I lead address it directly and promptly."}},
+  {text:"I give regular, specific feedback, not just during review cycles.", area:2, dim:"team", alt:{leader:"Managers I lead give regular, specific feedback, not just during review cycles."}},
+  {text:"I hold my team accountable for outcomes, not just effort or activity.", area:2, dim:"team", alt:{leader:"Managers I lead hold their teams accountable for outcomes, not just effort."}},
+  {text:"Accountability is distributed fairly within my team. It doesn't fall on a few people.", area:2, dim:"team", alt:{leader:"Managers I lead distribute accountability fairly within their teams."}},
   // Org
   {text:"There's clear ownership for following up on engagement results and action plans.", area:2, dim:"org", alt:{}},
   {text:"When someone leaves or changes roles, their responsibilities are picked up in a structured way.", area:2, dim:"org", alt:{}},
@@ -258,16 +260,16 @@ const QUESTIONS = [
 
   // === AREA 3: Communication & Alignment ===
   // Team
-  {text:"I cascade strategy and context to my team in a way that lands and sticks.", area:3, dim:"team", alt:{leader:"My managers cascade strategy and context effectively to their teams."}},
-  {text:"I have consistent rituals (1:1s, team syncs, retros) that keep my team aligned.", area:3, dim:"team", alt:{leader:"My managers have consistent rituals that keep their teams aligned."}},
-  {text:"My team understands how our work connects to the company's broader strategy.", area:3, dim:"team", alt:{leader:"My managers' teams understand how their work connects to company strategy."}},
-  {text:"When priorities or direction change, I communicate the 'why' clearly to my team.", area:3, dim:"team", alt:{leader:"When priorities change, my managers communicate the 'why' clearly."}},
-  {text:"I actively invest in my own development as a manager to stay effective at this scale.", area:3, dim:"team", alt:{leader:"My managers actively invest in their own development."}},
+  {text:"I cascade strategy and context to my team in a way that lands and sticks.", area:3, dim:"team", alt:{leader:"Managers I lead cascade strategy and context effectively to their teams."}},
+  {text:"I have consistent rituals (1:1s, team syncs, retros) that keep my team aligned.", area:3, dim:"team", alt:{leader:"Managers I lead have consistent rituals that keep their teams aligned."}},
+  {text:"My team understands how our work connects to the company's broader strategy.", area:3, dim:"team", alt:{leader:"Managers I lead have teams that understand how their work connects to company strategy."}},
+  {text:"When priorities or direction change, I communicate the 'why' clearly to my team.", area:3, dim:"team", alt:{leader:"When priorities change, managers I lead communicate the 'why' clearly."}},
+  {text:"I actively invest in my own development as a manager to stay effective at this scale.", area:3, dim:"team", alt:{leader:"Managers I lead actively invest in their own development."}},
   // Org
   {text:"Important context and updates from leadership are shared proactively, not just when I ask.", area:3, dim:"org", alt:{}},
   {text:"The story of what's changing and why gets communicated consistently across teams.", area:3, dim:"org", alt:{}},
   {text:"Cross-functional coordination feels efficient, not dependent on informal relationships.", area:3, dim:"org", alt:{}},
-  {text:"I feel equipped to influence peers and partners in other orgs without direct authority.", area:3, dim:"org", alt:{leader:"My managers feel equipped to influence peers without direct authority."}},
+  {text:"I feel equipped to influence peers and partners in other orgs without direct authority.", area:3, dim:"org", alt:{leader:"Managers I lead feel equipped to influence peers without direct authority."}},
   {text:"When ownership of a process shifts between teams, the transition is communicated clearly.", area:3, dim:"org", alt:{}},
 ];
 
