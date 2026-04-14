@@ -190,8 +190,9 @@ const VALID_TOKENS = [
 
 // On page load, validate the token
 window.addEventListener('DOMContentLoaded', async function() {
+  await trySyncPendingResponse();
+
   if (IS_ADMIN) {
-    adminAuthenticated = true;
     showScreen('aggregate');
     return;
   }
@@ -621,7 +622,7 @@ function showResults() {
   // Actions – respondents see a thank-you, not the dashboard
   html += '<div class="card" style="text-align:center; padding:32px; margin-top:16px; background:var(--mint);">' +
     '<h2 style="color:var(--chime-dark); margin-bottom:8px;">Thank you for completing the diagnostic</h2>' +
-    '<p style="color:var(--chime-mid); font-size:14px; max-width:480px; margin:0 auto;">Your response has been saved. Aggregate results will be shared with Ops Leadership and the Culture Crew to identify patterns and develop targeted solutions.</p></div>' +
+    '<p id="save-status" style="color:var(--chime-mid); font-size:14px; max-width:480px; margin:0 auto;">Your response has been saved. Aggregate results will be shared with Ops Leadership and the Culture Crew to identify patterns and develop targeted solutions.</p></div>' +
     '<div style="text-align:center; margin-top:16px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">' +
     '<button class="btn btn-secondary" onclick="window.print()">Print My Results</button></div>';
 
@@ -668,19 +669,44 @@ function showResults() {
 }
 
 // ===== PERSISTENCE =====
+const PENDING_KEY = 'omx_pending_response';
+
 async function saveResponse(scores) {
-  const { error } = await db.from('responses').insert({
+  const payload = {
     tier: tier,
     scores: scores,
     answers: {...answers},
     bottleneck_answers: {...bottleneckAnswers},
     open_answers: {...openAnswers},
     token: TOKEN,
-  });
-  if (error) {
-    console.error('Failed to save response:', error);
-    alert('Your response could not be saved. Please check your connection and try again.');
+  };
+
+  const retryDelays = [1000, 3000];
+  for (let attempt = 0; attempt <= 2; attempt++) {
+    if (attempt > 0) {
+      await new Promise(function(r) { setTimeout(r, retryDelays[attempt - 1]); });
+    }
+    const { error } = await db.from('responses').insert(payload);
+    if (!error) return;
+    console.error('Save attempt ' + (attempt + 1) + ' failed:', error);
   }
+
+  // All retries exhausted -- save locally
+  localStorage.setItem(PENDING_KEY, JSON.stringify(payload));
+  const el = document.getElementById('save-status');
+  if (el) {
+    el.innerHTML = '<strong style="color:#CA8A04;">Your results are saved locally. ' +
+      'They\'ll sync automatically when you revisit this page.</strong>';
+  }
+}
+
+async function trySyncPendingResponse() {
+  const raw = localStorage.getItem(PENDING_KEY);
+  if (!raw) return;
+  let payload;
+  try { payload = JSON.parse(raw); } catch(e) { localStorage.removeItem(PENDING_KEY); return; }
+  const { error } = await db.from('responses').insert(payload);
+  if (!error) localStorage.removeItem(PENDING_KEY);
 }
 
 function saveAndGoAggregate() { showScreen('aggregate'); }
